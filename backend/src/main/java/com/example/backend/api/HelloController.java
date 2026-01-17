@@ -10,7 +10,8 @@ public class HelloController {
     public HelloResponse hello() {
         return new HelloResponse(
             "Hello from Spring Boot",
-            "backend"
+            "backend",
+            System.currentTimeMillis()
         );
     }
 }

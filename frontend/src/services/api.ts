@@ -3,6 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export type HelloResponse = {
   message: string;
   source: string;
+  timestramp: number;
 };
 
 export const api = createApi({
