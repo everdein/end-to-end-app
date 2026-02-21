@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { fetchHello } from "./features/hello/helloSlice";
+import { fetchHello } from "./features/common/commonSlice";
 import { useAppDispatch, useAppSelector } from "./app/hooks";
 
 export default function App() {

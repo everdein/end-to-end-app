@@ -1,5 +1,6 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { helloService, type HelloResponse } from "../../api/endpoints/hello";
+import { createSlice } from "@reduxjs/toolkit";
+import { fetchHello, sendHello } from "../common/commonSlice";
+import type { HelloResponse } from "../../api/endpoints/hello";
 
 type HelloState = {
     data: HelloResponse | null;
@@ -13,14 +14,15 @@ const initialState: HelloState = {
     error: null,
 };
 
-export const fetchHello = createAsyncThunk("hello/fetchHello", async () => {
-    return await helloService.getHello();
-});
-
 const helloSlice = createSlice({
     name: "hello",
     initialState,
-    reducers: {},
+    reducers: {
+        // Define any common reducers here if needed
+    },
+    selectors: {
+        selectHelloData: (state: HelloState) => state.data,
+    },
     extraReducers: (builder) => {
         builder
             .addCase(fetchHello.pending, (state) => {
@@ -35,7 +37,24 @@ const helloSlice = createSlice({
                 state.status = "failed";
                 state.error = action.error.message ?? "Unknown error";
             });
+        builder
+            .addCase(sendHello.pending, (state) => {
+                state.status = "loading";
+                state.error = null;
+            })
+            .addCase(sendHello.fulfilled, (state, action) => {
+                state.status = "succeeded";
+                state.data = action.payload;
+            })
+            .addCase(sendHello.rejected, (state, action) => {
+                state.status = "failed";
+                state.error = action.error.message ?? "Unknown error";
+            });
     },
 });
+
+// export const { } = helloSlice.actions;
+
+export const { selectHelloData } = helloSlice.selectors;
 
 export default helloSlice.reducer;
