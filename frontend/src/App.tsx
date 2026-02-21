@@ -1,22 +1,29 @@
-import { useGetHelloQuery } from "./services/api";
+import { useEffect } from "react";
+import { fetchHello } from "./features/hello/helloSlice";
+import { useAppDispatch, useAppSelector } from "./app/hooks";
 
 export default function App() {
-  const { data, isLoading, isError, error, refetch } = useGetHelloQuery();
+    const dispatch = useAppDispatch();
+    const { data, status, error } = useAppSelector((state) => state.hello);
 
-  return (
-    <div style={{ padding: 24 }}>
-      <h1>End-to-End App</h1>
+    useEffect(() => {
+        dispatch(fetchHello());
+    }, [dispatch]);
 
-      <button onClick={() => refetch()}>Refetch</button>
+    return (
+        <div style={{ padding: 24 }}>
+            <h1>End-to-End App</h1>
 
-      {isLoading && <p>Loading...</p>}
-      {isError && <pre>{JSON.stringify(error, null, 2)}</pre>}
+            <button onClick={() => dispatch(fetchHello())}>Refetch</button>
 
-      {data && (
-        <pre style={{ marginTop: 16 }}>
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      )}
-    </div>
-  );
+            {status === "loading" && <p>Loading...</p>}
+            {status === "failed" && <pre>{error}</pre>}
+
+            {status === "succeeded" && data && (
+                <pre style={{ marginTop: 16 }}>
+                    {JSON.stringify(data, null, 2)}
+                </pre>
+            )}
+        </div>
+    );
 }
