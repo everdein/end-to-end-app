@@ -60,11 +60,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OWASP Dependency-Check (backend)
-        uses: jeremylong/owasp-dependency-check-action@v2
-        with:
-          project: 'backend'
-          scanDirectory: './backend'
-          format: 'ALL'
+        working-directory: backend
+        run: |
+          chmod +x mvnw || true
+          # run OWASP dependency-check via the Maven plugin; fail the job on CVSS >= 7
+          ./mvnw -B org.owasp:dependency-check-maven:check -Dformat=ALL -DfailBuildOnCVSS=7
       - name: Setup Node for frontend audit
         uses: actions/setup-node@v4
         with:
