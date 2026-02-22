@@ -67,10 +67,15 @@ jobs:
 
       - name: OWASP Dependency-Check (backend)
         working-directory: backend
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: |
           chmod +x mvnw || true
-          ./mvnw -B org.owasp:dependency-check-maven:check -Dformat=ALL -DfailBuildOnCVSS=7
-
+          ./mvnw -B org.owasp:dependency-check-maven:check \
+            -Dformat=ALL \
+            -DfailBuildOnCVSS=7 \
+            -DnvdApiKeyEnvironmentVariable=NVD_API_KEY
+            
       - name: Setup Node for frontend audit
         uses: actions/setup-node@v4
         with:
