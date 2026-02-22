@@ -12,9 +12,9 @@ export type HelloRequest = {
 
 export const helloService = {
     getHello: () =>
-        httpGet<HelloResponse>("/api/hello"),
+        httpGet<HelloResponse>("/api/getHello"),
     postHello: (payload: HelloRequest) =>
-        httpPost<HelloResponse, HelloRequest>("/api/hello", payload),
+        httpPost<HelloResponse, HelloRequest>("/api/postHello", payload),
 };
 
 export default helloService;

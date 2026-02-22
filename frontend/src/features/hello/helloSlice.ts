@@ -12,6 +12,8 @@ const initialState: HelloState = {
     data: null,
     status: "idle",
     error: null,
+
+    
 };
 
 const helloSlice = createSlice({

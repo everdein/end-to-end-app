@@ -2,14 +2,14 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { helloService } from "../../api/endpoints/hello";
 
 export const fetchHello = createAsyncThunk(
-    "hello/fetchHello",
+    "api/getHello",
     async () => {
         return await helloService.getHello();
     }
 );
 
 export const sendHello = createAsyncThunk(
-    "hello/sendHello",
+    "api/postHello",
     async (payload: { message: string }) => {
         return await helloService.postHello(payload);
     }
