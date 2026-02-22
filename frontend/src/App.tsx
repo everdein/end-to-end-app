@@ -15,11 +15,11 @@ export default function App() {
             <h1>End-to-End App</h1>
 
             <button onClick={() => dispatch(fetchHello())} style={{ marginRight: 8 }}>
-                Refetch
+                GET
             </button>
 
             <button onClick={() => dispatch(sendHello({ message: "Hello from FRONTEND!" }))}>
-                Send Hello
+                POST
             </button>
 
             {status === "loading" && <p>Loading...</p>}

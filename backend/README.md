@@ -45,6 +45,12 @@ From the `backend` directory:
 ./mvnw spring-boot:run
 ```
 
+This will run the application with spring boot devtools (recommended)
+
+```sh
+./mvnw -Pdev spring-boot:run
+```
+
 The server will start on:
 
 ```
