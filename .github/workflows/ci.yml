@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 2 * * *' # daily at 02:00 UTC for scheduled scans
   workflow_dispatch:
 
 permissions:
@@ -51,13 +53,38 @@ jobs:
           npm ci
           npm run build --if-present
 
+  dependency-scan:
+    name: Dependency Scanning
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: OWASP Dependency-Check (backend)
+        uses: jeremylong/owasp-dependency-check-action@v2
+        with:
+          project: 'backend'
+          scanDirectory: './backend'
+          format: 'ALL'
+      - name: Setup Node for frontend audit
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run npm audit (frontend)
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high
+
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
     needs: [backend-build, frontend-build]
 
-    # Prevent CodeQL from failing noisily on PRs from forks
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    # Run CodeQL for PRs targeting main, pushes to main, or scheduled runs
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.repo.fork == false) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'schedule')
 
     permissions:
       actions: read
@@ -101,6 +128,32 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+
+  snyk-scan:
+    name: Snyk Dependency Scan
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    # only run if SNYK_TOKEN secret is set
+    if: ${{ secrets.SNYK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Snyk CLI
+        run: |
+          npm install -g snyk
+      - name: Authenticate Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk auth $SNYK_TOKEN
+      - name: Snyk test (backend)
+        working-directory: backend
+        run: |
+          snyk test --all-projects --severity-threshold=high
+      - name: Snyk test (frontend)
+        working-directory: frontend
+        run: |
+          npm ci
+          snyk test --severity-threshold=high
 
   deploy:
     name: Manual Deploy (workflow_dispatch)
