@@ -35,8 +35,6 @@ jobs:
   frontend-build:
     name: Build Frontend
     runs-on: ubuntu-latest
-    # remove needs if you want parallel builds:
-    needs: backend-build
     steps:
       - uses: actions/checkout@v4
 
@@ -59,16 +57,27 @@ jobs:
     needs: [backend-build, frontend-build]
     steps:
       - uses: actions/checkout@v4
-      - name: OWASP Dependency-Check (backend)
-        uses: jeremylong/owasp-dependency-check-action@v2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
-          project: 'backend'
-          scanDirectory: './backend'
-          format: 'ALL'
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: OWASP Dependency-Check (backend)
+        working-directory: backend
+        run: |
+          chmod +x mvnw || true
+          ./mvnw -B org.owasp:dependency-check-maven:check -Dformat=ALL -DfailBuildOnCVSS=7
+
       - name: Setup Node for frontend audit
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Run npm audit (frontend)
         working-directory: frontend
         run: |
@@ -133,27 +142,23 @@ jobs:
     name: Snyk Dependency Scan
     runs-on: ubuntu-latest
     needs: [backend-build, frontend-build]
-    # only run if SNYK_TOKEN secret is set
-    if: ${{ secrets.SNYK_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node.js (for Snyk CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install Snyk CLI
-        run: |
-          npm install -g snyk
-      - name: Authenticate Snyk
+        run: npm install -g snyk
+
+      - name: Snyk test (all projects)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          snyk auth $SNYK_TOKEN
-      - name: Snyk test (backend)
-        working-directory: backend
-        run: |
-          snyk test --all-projects --severity-threshold=high
-      - name: Snyk test (frontend)
-        working-directory: frontend
-        run: |
-          npm ci
-          snyk test --severity-threshold=high
+        run: snyk test --all-projects --severity-threshold=high
 
   deploy:
     name: Manual Deploy (workflow_dispatch)
