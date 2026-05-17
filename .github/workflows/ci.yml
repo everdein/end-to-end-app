@@ -66,10 +66,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install root tool dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run cspell
         run: npx cspell --config .cspell.json "**/*.{md,ts,tsx,js,jsx,json,css,yml,yaml}"
