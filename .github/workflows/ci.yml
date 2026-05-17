@@ -34,6 +34,13 @@ jobs:
         working-directory: frontend
         run: npm run test -- --coverage
 
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          if-no-files-found: error
+
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -94,7 +101,7 @@ jobs:
 
       - name: Run TypeScript type check
         working-directory: frontend
-        run: npx tsc -p tsconfig.app.json --noEmit
+        run: npm run type-check
 
   build-backend:
     name: Build & Test Backend
@@ -110,6 +117,12 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+
+      - name: Verify backend formatting
+        working-directory: backend
+        run: |
+          chmod +x mvnw || true
+          ./mvnw -B spotless:check sortpom:verify
 
       - name: Build Backend
         working-directory: backend

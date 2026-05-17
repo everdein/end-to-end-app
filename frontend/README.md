@@ -1,35 +1,66 @@
-# Frontend (React + TypeScript + RTK Query)
+# Frontend (React + TypeScript + Redux Toolkit)
 
-Minimal React application that calls the backend JSON API and renders the response.  
-This frontend is intentionally small and designed as a reference for end-to-end frontend ↔ backend integration.
+Modern React frontend application built with Vite and TypeScript.
+
+This frontend is intentionally designed as a lightweight reference application
+focused on:
+
+- frontend ↔ backend communication
+- modern React architecture
+- Redux Toolkit patterns
+- TypeScript strictness
+- testing and quality tooling
+- developer experience
+
+The goal is not production complexity, but establishing clean frontend
+engineering patterns that can scale over time.
+
+---
+
+## Tech stack
+
+### Core
+
+- React 19
+- TypeScript
+- Vite
+- Redux Toolkit
+- React Redux
+
+### Testing
+
+- Vitest
+- Testing Library
+- jsdom
+- V8 coverage
+
+### Quality tooling
+
+- ESLint
+- Prettier
+- Husky
+- lint-staged
+- cspell
+- eslint-config-prettier
+
+---
 
 ## Requirements
 
-- Node.js 20+ (LTS recommended)
-- npm (included with Node.js)
-- Backend running locally (see `backend/README.md`)
+- Node.js 20+
+- npm 10+
+- Backend application running locally
 
-## Environment notes (Windows)
-
-This project was developed and tested with:
-
-- Node.js 20 LTS
-- npm 11+
-
-To verify Node and npm are available:
+Verify Node/npm are installed:
 
 ```sh
 node -v
 npm -v
 ```
 
-If both commands succeed, the environment is configured correctly.
+---
 
-## Project initialization
-
-This project was scaffolded using Vite with the React + TypeScript template.
-
-## Install dependencies
+## Installation
 
 From the `frontend` directory:
 
@@ -37,7 +68,9 @@ From the `frontend` directory:
 npm install
 ```
 
-## Run the application
+---
+
+## Running the application
 
 From the `frontend` directory:
 
@@ -45,46 +78,255 @@ From the `frontend` directory:
 npm run dev
 ```
 
-The development server will start on:
+Frontend URL:
 
-```
+```text
 http://localhost:3000
 ```
 
-## Backend dependency
+---
 
-The frontend depends on the backend service, but does not call it directly from
-the browser.
+## Backend integration
 
-During local development, requests to:
+During local development, API requests are proxied through the Vite dev server.
 
-```
+Frontend requests:
+
+```text
 /api/*
 ```
 
-are proxied by the Vite dev server to:
+are automatically forwarded to:
 
-```
+```text
 http://localhost:8080
 ```
 
-This avoids CORS issues and keeps backend URLs out of frontend source code.
+This provides:
 
-## Key files
+- clean frontend API calls
+- no hard-coded backend URLs
+- no local CORS configuration required
 
-- `src/services/api.ts`
-  - RTK Query API slice
-  - Defines the `getHello` query and response typing
-- `src/store.ts`
-  - Redux store configuration
-  - Registers RTK Query reducer + middleware
-- `src/main.tsx`
-  - Wraps the app in the Redux `Provider`
-- `src/App.tsx`
-  - Calls `useGetHelloQuery()` and displays the JSON response
+---
+
+## Available scripts
+
+### Start development server
+
+```sh
+npm run dev
+```
+
+### Production build
+
+```sh
+npm run build
+```
+
+### Preview production build
+
+```sh
+npm run preview
+```
+
+### Run tests
+
+```sh
+npm run test
+```
+
+### Run tests in watch mode
+
+```sh
+npm run test:watch
+```
+
+### Run coverage
+
+```sh
+npm run test -- --coverage
+```
+
+### Run ESLint
+
+```sh
+npm run lint
+```
+
+### Auto-fix ESLint issues
+
+```sh
+npm run lint:fix
+```
+
+### Type-check only
+
+```sh
+npm run type-check
+```
+
+---
+
+## Project structure
+
+```text
+frontend/
+├── src/
+│   ├── components/
+│   ├── services/
+│   ├── store/
+│   ├── test/
+│   └── main.tsx
+│
+├── vite.config.ts
+├── eslint.config.js
+├── tsconfig.app.json
+├── tsconfig.node.json
+└── package.json
+```
+
+---
+
+## Key application files
+
+### `src/services/api.ts`
+
+Defines API integration logic.
+
+Responsibilities:
+
+- API endpoint definitions
+- request configuration
+- response typing
+- frontend/backend communication
+
+### `src/store.ts`
+
+Redux store configuration.
+
+Responsibilities:
+
+- Redux Toolkit store setup
+- middleware registration
+- centralized application state
+
+### `src/main.tsx`
+
+Frontend application entry point.
+
+Responsibilities:
+
+- React root creation
+- Redux Provider registration
+- application bootstrapping
+
+### `src/App.tsx`
+
+Primary application component.
+
+Responsibilities:
+
+- data fetching
+- rendering API responses
+- demonstrating frontend ↔ backend flow
+
+### `vite.config.ts`
+
+Frontend build and development configuration.
+
+Responsibilities:
+
+- Vite plugin registration
+- development server configuration
+- proxy configuration
+- Vitest configuration
+- path alias configuration
+
+### `eslint.config.js`
+
+Frontend linting configuration.
+
+Responsibilities:
+
+- TypeScript linting
+- React linting
+- accessibility validation
+- import sorting
+- React hooks validation
+- formatting compatibility
+
+---
+
+## Testing
+
+Vitest is used as the test runner.
+
+Coverage reports are generated using the V8 coverage provider.
+
+Coverage output:
+
+```text
+frontend/coverage/
+```
+
+---
+
+## Code quality
+
+The frontend uses:
+
+- ESLint for static analysis
+- Prettier for formatting
+- strict TypeScript compiler settings
+- import sorting
+- accessibility rules
+- React hooks validation
+- path aliases for cleaner imports
+
+Git hooks automatically run checks on staged files before commits.
+
+---
+
+## Architecture notes
+
+### Path aliases
+
+The frontend uses the `@` alias for cleaner imports:
+
+```ts
+import Button from '@/components/Button';
+```
+
+instead of deeply nested relative imports:
+
+```ts
+import Button from '../../../components/Button';
+```
+
+### Strict TypeScript
+
+The TypeScript configuration intentionally favors strictness and explicitness
+to encourage safer and more maintainable frontend code.
+
+---
 
 ## Notes
 
-- Uses React + TypeScript
-- Uses Redux Toolkit and RTK Query for data fetching
-- No routing, no forms, no persistence—only the smallest working example
+Intentional simplifications:
+
+- no routing
+- no authentication
+- no persistence
+- no component library
+- no advanced caching/state normalization
+- no deployment infrastructure
+
+Focus areas:
+
+- architecture clarity
+- maintainability
+- frontend/backend integration
+- modern tooling
+- developer workflow quality
+- frontend engineering standards

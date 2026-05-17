@@ -7,6 +7,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import tsEslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import { defineConfig } from 'eslint/config';
 
 export default defineConfig([
@@ -33,6 +34,7 @@ export default defineConfig([
       ecmaVersion: 2020,
       sourceType: 'module',
       globals: globals.browser,
+
       parserOptions: {
         ecmaFeatures: {
           jsx: true,
@@ -47,20 +49,41 @@ export default defineConfig([
     },
 
     rules: {
+      // Base recommended rules
       ...tsEslint.configs.recommended.rules,
       ...react.configs.recommended.rules,
 
+      // General code quality
+      curly: ['error', 'all'],
+      eqeqeq: ['error', 'always'],
+
+      'no-console': [
+        'warn',
+        {
+          allow: ['warn', 'error'],
+        },
+      ],
+
+      'no-var': 'error',
+      'prefer-const': 'error',
+      'object-shorthand': 'error',
+
+      // TypeScript
       '@typescript-eslint/no-explicit-any': 'error',
 
+      // Import sorting
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
 
+      // React
       'react/react-in-jsx-scope': 'off',
       'react/jsx-uses-react': 'off',
 
+      // React hooks
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
 
+      // Vite / Fast Refresh
       'react-refresh/only-export-components': [
         'warn',
         {
@@ -68,7 +91,11 @@ export default defineConfig([
         },
       ],
 
+      // Accessibility
       'jsx-a11y/anchor-is-valid': 'warn',
     },
   },
+
+  // Must be LAST so Prettier can disable conflicting formatting rules
+  eslintConfigPrettier,
 ]);

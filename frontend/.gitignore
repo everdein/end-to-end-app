@@ -1,24 +1,70 @@
+# =========================
+# Dependencies
+# =========================
+node_modules
+frontend/node_modules
+
+# =========================
+# Build output
+# =========================
+dist
+dist-ssr
+build
+coverage
+
+frontend/dist
+frontend/coverage
+
+backend/target
+
+# =========================
+# TypeScript
+# =========================
+*.tsbuildinfo
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.*
+*.local
+
+# =========================
 # Logs
+# =========================
 logs
 *.log
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# =========================
+# IDE / Editor
+# =========================
 .vscode/*
 !.vscode/extensions.json
+
 .idea
+
 .DS_Store
+
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# =========================
+# Java / Maven
+# =========================
+.mvn/wrapper/maven-wrapper.jar
+
+# =========================
+# Misc
+# =========================
+tmp
+temp
+.cache
