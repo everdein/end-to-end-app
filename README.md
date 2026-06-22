@@ -319,6 +319,7 @@ GitHub Actions currently validates:
 
 Additional documentation:
 
+- `docs/adr/README.md`
 - `backend/README.md`
 - `frontend/README.md`
 
