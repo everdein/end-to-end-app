@@ -25,3 +25,30 @@ export async function httpPost<T, B = unknown>(url: string, body: B): Promise<T>
 
   return (await res.json()) as T;
 }
+
+export async function httpPut<T, B = unknown>(url: string, body: B): Promise<T> {
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body as unknown),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
+  }
+
+  return (await res.json()) as T;
+}
+
+export async function httpDelete(url: string): Promise<void> {
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { 'content-type': 'application/json' },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
+  }
+}

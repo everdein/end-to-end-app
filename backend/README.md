@@ -5,10 +5,11 @@ Modern Spring Boot backend API used by the frontend reference application.
 This backend is intentionally designed as a lightweight instructional service
 focused on:
 
-- frontend ↔ backend communication
+- frontend/backend communication
 - REST API design
 - layered architecture
 - DTO usage
+- file-backed local persistence
 - local development workflows
 - backend tooling and CI integration
 
@@ -25,6 +26,7 @@ engineering patterns and workflows that can scale over time.
 - Spring Boot 4
 - Spring MVC
 - Maven
+- Jackson
 
 ### Tooling
 
@@ -159,20 +161,87 @@ Example response:
 
 ---
 
+### Get financial snapshot
+
+```http
+GET /api/financials/expenses
+```
+
+Returns the current pay period, monthly withdrawals, asset category totals, and
+overall tracked-assets total.
+
+---
+
+### Save financial snapshot
+
+```http
+PUT /api/financials/expenses/snapshot
+```
+
+Persists the full edited financial snapshot in one request. This is the main
+endpoint used by the frontend draft/save workflow.
+
+---
+
+### Granular financial endpoints
+
+```http
+POST /api/financials/expenses
+PUT /api/financials/expenses/{id}
+DELETE /api/financials/expenses/{id}
+PUT /api/financials/pay-period
+```
+
+These endpoints remain available for direct bill and pay period updates, even
+though the current UI saves the full snapshot.
+
+---
+
+## Financial data storage
+
+Financial data is stored in a local JSON file:
+
+```text
+backend/data/financials.local.json
+```
+
+That file is ignored by Git and should contain the user's real local financial
+data. The committed template lives at:
+
+```text
+backend/data/financials.example.json
+```
+
+On startup, `FinancialsRepository` creates `financials.local.json` from the
+example file when the local file does not already exist. This keeps the feature
+usable after a fresh clone without committing personal data.
+
+The storage path can be overridden with Spring configuration:
+
+```properties
+financials.data.path=data/financials.local.json
+financials.example-data.path=data/financials.example.json
+```
+
+---
+
 ## Project structure
 
 ```text
 backend/
-├── src/main/java/
-│   ├── api/
-│   ├── dto/
-│   ├── service/
-│   └── BackendApplication.java
-│
-├── src/main/resources/
-│
-├── pom.xml
-└── README.md
+|-- data/
+|   |-- financials.example.json
+|   `-- financials.local.json        # ignored by Git
+|-- src/main/java/
+|   |-- com/example/backend/api/
+|   |-- com/example/backend/dto/
+|   |   `-- financials/
+|   |-- com/example/backend/repository/
+|   |-- com/example/backend/service/
+|   `-- com/example/backend/BackendApplication.java
+|-- src/test/java/
+|-- pom.xml
+`-- README.md
 ```
 
 ---
@@ -200,6 +269,17 @@ Responsibilities:
 - response payloads
 - API contract typing
 
+### `repository/`
+
+Persistence-facing data models and storage adapters.
+
+Responsibilities:
+
+- loading local JSON data
+- writing local JSON data
+- assigning IDs for new local rows
+- keeping persistence concerns out of controllers
+
 ### `service/`
 
 Business/service layer.
@@ -207,8 +287,31 @@ Business/service layer.
 Responsibilities:
 
 - application logic
-- orchestration
-- reusable backend behavior
+- validation
+- pay period calculations
+- totals and snapshot aggregation
+- orchestration between API and repository layers
+
+---
+
+## Financials domain behavior
+
+The financials service calculates:
+
+- monthly withdrawal total
+- paid total
+- unpaid total
+- pay period total
+- per-category asset totals
+- total tracked assets
+
+Pay periods are stored as start and end dates. When a snapshot is read, the
+service advances or rewinds the stored pay period window to include the current
+date while preserving the original period length.
+
+Withdrawal due dates are derived from each row's due day and the active pay
+period month. Days beyond the end of a month are clamped to the last valid day
+of that month.
 
 ---
 
@@ -304,7 +407,7 @@ The backend participates in repository CI pipelines for:
 Intentional simplifications:
 
 - no database
-- no persistence layer
+- local JSON persistence only
 - no authentication
 - no authorization
 - no external APIs
@@ -314,6 +417,7 @@ Focus areas:
 
 - backend architecture fundamentals
 - clean API boundaries
+- local persistence boundaries
 - maintainability
 - local development experience
 - frontend/backend integration

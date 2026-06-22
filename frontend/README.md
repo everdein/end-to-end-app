@@ -5,10 +5,11 @@ Modern React frontend application built with Vite and TypeScript.
 This frontend is intentionally designed as a lightweight reference application
 focused on:
 
-- frontend ↔ backend communication
+- frontend/backend communication
 - modern React architecture
 - Redux Toolkit patterns
 - TypeScript strictness
+- draft/save user workflows
 - testing and quality tooling
 - developer experience
 
@@ -110,6 +111,46 @@ This provides:
 
 ---
 
+## Financials UI
+
+The main application screen is a personal financial snapshot with tabs for:
+
+- Overview
+- Monthly Withdrawals
+- Retirement
+- Investments
+- Cash & Savings
+- Insurance / Benefits
+
+The Monthly Withdrawals tab supports:
+
+- pay period start and end dates
+- automatic pay period highlighting
+- monthly, paid, unpaid, and in-period totals
+- adding withdrawal rows
+- editing existing withdrawal rows
+- removing withdrawal rows
+- resetting unsaved changes
+- saving the full draft snapshot
+
+The asset tabs support editable account rows grouped by category. Each category
+shows account, company, amount, row actions, and a calculated total.
+
+### Data flow
+
+The frontend uses a draft/save pattern:
+
+1. `fetchMonthlyExpenses` loads one snapshot from the backend.
+2. The user edits local React component state.
+3. Redux tracks loading, saving, and error state.
+4. `saveExpenseSnapshot` sends the full edited snapshot to the backend.
+5. The backend response becomes the new committed Redux snapshot.
+
+This keeps form editing responsive while still demonstrating production-style
+API boundaries.
+
+---
+
 ## Available scripts
 
 ### Start development server
@@ -176,6 +217,7 @@ frontend/
 |   |-- api/
 |   |-- app/
 |   |-- features/
+|   |   `-- financials/
 |   |-- setupTests.ts
 |   `-- main.tsx
 |
@@ -210,6 +252,17 @@ Responsibilities:
 - API endpoint definitions
 - response typing
 - frontend/backend communication
+
+### `src/api/endpoints/financials.ts`
+
+Defines the financials API integration logic.
+
+Responsibilities:
+
+- financial snapshot typing
+- withdrawal and asset category contracts
+- fetch and save API calls
+- optional granular withdrawal endpoint helpers
 
 ### `src/app/store.ts`
 
@@ -246,9 +299,33 @@ Primary application component.
 
 Responsibilities:
 
-- data fetching
-- rendering API responses
-- demonstrating frontend ↔ backend flow
+- rendering the financials feature
+- demonstrating frontend/backend flow
+- hosting the application shell
+
+### `src/features/financials/MonthlyExpenses.tsx`
+
+Financial snapshot feature UI.
+
+Responsibilities:
+
+- tabbed financial sections
+- local draft state for edits
+- monthly withdrawal forms
+- asset account forms
+- pay period calculations
+- save/reset workflow
+
+### `src/features/financials/financialsSlice.ts`
+
+Redux Toolkit slice for backend-backed financial snapshot state.
+
+Responsibilities:
+
+- initial snapshot fetch
+- snapshot save request
+- loading and saving status
+- API error state
 
 ### `vite.config.ts`
 
@@ -328,6 +405,13 @@ import { helloService } from '../../api/endpoints/hello';
 The TypeScript configuration intentionally favors strictness and explicitness
 to encourage safer and more maintainable frontend code.
 
+### Draft/save financial editing
+
+Financial form changes are intentionally held in component-local draft state
+until the user clicks `Save Changes`. This mirrors applications that fetch data
+once, let a user make a batch of edits, then persist the final snapshot in one
+request.
+
 ---
 
 ## Notes
@@ -336,16 +420,17 @@ Intentional simplifications:
 
 - no routing
 - no authentication
-- no persistence
 - no component library
 - no advanced caching/state normalization
 - no deployment infrastructure
+- no external financial website integrations
 
 Focus areas:
 
 - architecture clarity
 - maintainability
 - frontend/backend integration
+- draft/save state management
 - modern tooling
 - developer workflow quality
 - frontend engineering standards

@@ -1,0 +1,275 @@
+.expenses-shell {
+  color: #172033;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0 auto;
+  max-width: 1280px;
+  padding: 24px;
+}
+
+.app-header {
+  align-items: end;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  color: #536179;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+.tabs {
+  border-bottom: 1px solid #d7e0eb;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: #536179;
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+
+.tabs button.active,
+.tabs button[aria-current="page"] {
+  border-bottom-color: #17365d;
+  color: #17365d;
+}
+
+.withdrawals-header {
+  align-items: end;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.withdrawals-header p {
+  color: #536179;
+  margin: 6px 0 0;
+}
+
+.pay-period,
+.bill-form {
+  display: grid;
+  gap: 12px;
+}
+
+.pay-period {
+  align-items: end;
+  grid-template-columns: repeat(3, minmax(0, auto));
+}
+
+.save-actions {
+  display: flex;
+  gap: 8px;
+}
+
+label {
+  color: #344054;
+  display: grid;
+  font-size: 0.85rem;
+  font-weight: 700;
+  gap: 6px;
+}
+
+input {
+  border: 1px solid #c9d3e1;
+  border-radius: 6px;
+  color: #172033;
+  font: inherit;
+  padding: 9px 10px;
+}
+
+button {
+  background: #17365d;
+  border: 1px solid #17365d;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 9px 12px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+button.ghost {
+  background: #ffffff;
+  color: #17365d;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 20px;
+}
+
+.summary-grid div {
+  border: 1px solid #d7e0eb;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.summary-grid span {
+  color: #536179;
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.summary-grid strong {
+  font-size: 1.35rem;
+}
+
+.expenses-layout {
+  align-items: start;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  width: 100%;
+}
+
+caption {
+  color: #536179;
+  caption-side: top;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+th {
+  background: #d9eaf7;
+  color: #172033;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+td,
+th {
+  border-bottom: 1px solid #e5eaf0;
+  padding: 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+tr.in-period td {
+  background: #f8fbff;
+}
+
+.amount {
+  text-align: right;
+}
+
+.pill {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.paid {
+  background: #e2f0d9;
+  color: #26651f;
+}
+
+.unpaid {
+  background: #fff2cc;
+  color: #7a4d00;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.actions button {
+  padding: 6px 9px;
+}
+
+tfoot td {
+  border-top: 2px solid #344054;
+  font-weight: 800;
+}
+
+.bill-form {
+  border: 1px solid #d7e0eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.checkbox-row {
+  align-items: center;
+  display: flex;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.status,
+.error {
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.status {
+  background: #f3f6fa;
+}
+
+.error {
+  background: #fce4d6;
+  color: #8a1f11;
+}
+
+@media (max-width: 900px) {
+
+  .app-header,
+  .withdrawals-header,
+  .expenses-layout {
+    display: block;
+  }
+
+  .pay-period,
+  .summary-grid {
+    grid-template-columns: 1fr;
+    margin-top: 16px;
+  }
+
+  .bill-form {
+    margin-top: 20px;
+  }
+}

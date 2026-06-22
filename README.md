@@ -50,6 +50,7 @@ patterns and workflows that can scale over time.
 ```text
 end-to-end-app/
 |-- backend/              # Spring Boot API
+|   `-- data/             # Example and local financial snapshot data
 |-- frontend/             # React + TypeScript frontend
 |-- .github/workflows/    # CI pipelines
 |-- .husky/               # Git hooks
@@ -155,7 +156,7 @@ Because the Vite proxy is used:
 
 ## API contract
 
-Endpoints:
+Hello endpoints:
 
 ```http
 GET /api/getHello
@@ -171,6 +172,58 @@ Example response:
   "timestamp": 1715890000000
 }
 ```
+
+Financials endpoints:
+
+```http
+GET /api/financials/expenses
+PUT /api/financials/expenses/snapshot
+POST /api/financials/expenses
+PUT /api/financials/expenses/{id}
+DELETE /api/financials/expenses/{id}
+PUT /api/financials/pay-period
+```
+
+The Financials UI currently uses a draft/save workflow:
+
+- one request loads the financial snapshot when the app opens
+- edits are made locally in the browser
+- one save request persists the full snapshot to the backend
+
+The individual bill endpoints remain available as a more granular API option.
+
+---
+
+## Financials feature
+
+The application includes a personal financial snapshot area with tabs for:
+
+- overview totals
+- monthly withdrawals
+- retirement accounts
+- investments
+- cash and savings
+- insurance and benefits
+
+Monthly withdrawals support adding, editing, removing, paid status tracking,
+and pay period start/end dates. Asset categories support editable account rows
+with category totals and an overall tracked-assets total.
+
+Financial data is stored locally by the backend in:
+
+```text
+backend/data/financials.local.json
+```
+
+That file is intentionally ignored by Git so personal data stays local. A safe
+template is committed at:
+
+```text
+backend/data/financials.example.json
+```
+
+If the local file does not exist, the backend creates it from the example file
+on startup.
 
 ---
 
@@ -280,13 +333,16 @@ Current intentional limitations:
 - no database
 - no authentication
 - no routing
-- no persistence layer
+- local file-backed persistence only
 - no deployment infrastructure
+- no external financial website integrations
 
 Focus areas:
 
 - architecture clarity
 - frontend/backend communication
+- draft/save state management
+- local data persistence boundaries
 - modern tooling
 - developer experience
 - CI/CD workflows
