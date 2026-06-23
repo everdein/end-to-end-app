@@ -135,7 +135,11 @@ function ProjectionPeriodCard({ period }: { period: ProjectionPeriod }) {
       </dl>
 
       <div className="table-wrap">
-        <table>
+        <table className="projection-detail-table">
+          <colgroup>
+            <col className="name-column" />
+            <col className="amount-column" />
+          </colgroup>
           <caption>What is included in this paycheck period</caption>
           <thead>
             <tr>

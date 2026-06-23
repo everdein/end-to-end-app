@@ -6,6 +6,7 @@ import com.example.backend.dto.financials.ExpenseSnapshotRequest;
 import com.example.backend.dto.financials.ExpenseSnapshotResponse;
 import com.example.backend.dto.financials.PayPeriodRequest;
 import com.example.backend.service.FinancialsService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,13 +33,13 @@ public class FinancialsController {
 
   @PostMapping("/api/financials/expenses")
   @ResponseStatus(HttpStatus.CREATED)
-  public ExpenseBillResponse addBill(@RequestBody ExpenseBillRequest request) {
+  public ExpenseBillResponse addBill(@Valid @RequestBody ExpenseBillRequest request) {
     return financialsService.addBill(request);
   }
 
   @PutMapping("/api/financials/expenses/{id}")
   public ExpenseBillResponse updateBill(
-      @PathVariable long id, @RequestBody ExpenseBillRequest request) {
+      @PathVariable long id, @Valid @RequestBody ExpenseBillRequest request) {
     return financialsService.updateBill(id, request);
   }
 
@@ -49,12 +50,12 @@ public class FinancialsController {
   }
 
   @PutMapping("/api/financials/pay-period")
-  public ExpenseSnapshotResponse updatePayPeriod(@RequestBody PayPeriodRequest request) {
+  public ExpenseSnapshotResponse updatePayPeriod(@Valid @RequestBody PayPeriodRequest request) {
     return financialsService.updatePayPeriod(request);
   }
 
   @PutMapping("/api/financials/expenses/snapshot")
-  public ExpenseSnapshotResponse saveSnapshot(@RequestBody ExpenseSnapshotRequest request) {
+  public ExpenseSnapshotResponse saveSnapshot(@Valid @RequestBody ExpenseSnapshotRequest request) {
     return financialsService.saveSnapshot(request);
   }
 }

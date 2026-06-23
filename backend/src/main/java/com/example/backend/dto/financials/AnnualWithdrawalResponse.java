@@ -1,5 +1,6 @@
 package com.example.backend.dto.financials;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record AnnualWithdrawalResponse(
@@ -9,7 +10,7 @@ public record AnnualWithdrawalResponse(
     int day,
     String dateLabel,
     LocalDate dueDate,
-    double amount,
+    BigDecimal amount,
     String account,
     boolean paid,
     boolean inPayPeriod) {}

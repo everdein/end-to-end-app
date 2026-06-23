@@ -160,15 +160,24 @@ Because the Vite proxy is used:
 
 ## API contract
 
-Financials endpoints:
+The financials API currently behaves as a single snapshot aggregate. The
+existing route names still include `expenses` for compatibility, but the primary
+read and save endpoints load and persist the full financial workspace.
+
+Financial snapshot endpoints:
 
 ```http
 GET /api/financials/expenses
 PUT /api/financials/expenses/snapshot
+PUT /api/financials/pay-period
+```
+
+Granular bill endpoints:
+
+```http
 POST /api/financials/expenses
 PUT /api/financials/expenses/{id}
 DELETE /api/financials/expenses/{id}
-PUT /api/financials/pay-period
 ```
 
 The Financials UI currently uses a draft/save workflow:
@@ -177,7 +186,8 @@ The Financials UI currently uses a draft/save workflow:
 - edits are made locally in the browser
 - one save request persists the full snapshot to the backend
 
-The individual bill endpoints remain available as a more granular API option.
+The individual bill endpoints remain available as a more granular API option,
+but the current UI treats the snapshot as the source of truth.
 
 ---
 
@@ -190,7 +200,7 @@ sections for:
 - next pay period projections for paycheck income, bills, rent set-asides, debt payoff, and possible HYSA transfer
 - monthly withdrawals with pay period planning
 - annual withdrawals that can be included in the active pay period
-- income summary assumptions by interval
+- income summary derived from one editable bi-weekly net income value
 - income calendar events with received/current/upcoming status
 - retirement accounts
 - investments
@@ -213,6 +223,10 @@ withdrawals due, the rent bill, the rent savings account, and current debt to
 estimate what can go toward credit card debt. If debt is covered, remaining cash
 is shown as a possible Apple HYSA transfer. The current period is shown only as
 supporting context.
+
+The Income Summary view stores `Net Income / Bi-Weekly` as the source value.
+Annual, monthly, weekly, and disposable income rows are calculated from that
+source and the current monthly withdrawal total.
 
 Financial data is stored locally by the backend in:
 

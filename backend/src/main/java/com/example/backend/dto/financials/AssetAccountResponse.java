@@ -1,3 +1,5 @@
 package com.example.backend.dto.financials;
 
-public record AssetAccountResponse(long id, String account, String company, double amount) {}
+import java.math.BigDecimal;
+
+public record AssetAccountResponse(long id, String account, String company, BigDecimal amount) {}

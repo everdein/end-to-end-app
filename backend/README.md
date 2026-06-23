@@ -117,6 +117,11 @@ http://localhost:8080
 
 ## Available endpoints
 
+The current API is organized around a financial snapshot aggregate. Some route
+names still include `expenses` for compatibility with the original monthly bill
+feature, but the main read and save endpoints operate on the full financial
+workspace.
+
 ### Get financial snapshot
 
 ```http
@@ -140,7 +145,7 @@ endpoint used by the frontend draft/save workflow.
 
 ---
 
-### Granular financial endpoints
+### Granular bill endpoints
 
 ```http
 POST /api/financials/expenses
@@ -150,7 +155,7 @@ PUT /api/financials/pay-period
 ```
 
 These endpoints remain available for direct bill and pay period updates, even
-though the current UI saves the full snapshot.
+though the current UI saves the full snapshot as the source of truth.
 
 ---
 
@@ -280,9 +285,10 @@ projects them into the active pay period year so they can be displayed as
 `MM/DD/YYYY` and included in pay period planning.
 
 The persisted snapshot currently includes monthly bills, annual withdrawals,
-asset accounts, debt accounts, income summary items, income calendar events,
-and important dates. This is intentionally a single-user local aggregate until
-the app needs database-backed collaboration or integrations.
+asset accounts, debt accounts, the bi-weekly net income source item, income
+calendar events, and important dates. Derived income summary rows are calculated
+by the frontend. This is intentionally a single-user local aggregate until the
+app needs database-backed collaboration or integrations.
 
 ---
 

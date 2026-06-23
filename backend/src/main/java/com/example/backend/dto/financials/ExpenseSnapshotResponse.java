@@ -1,20 +1,21 @@
 package com.example.backend.dto.financials;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
 public record ExpenseSnapshotResponse(
     LocalDate payPeriodStart,
     LocalDate payPeriodEnd,
-    double totalMonthlyExpenses,
-    double paidTotal,
-    double unpaidTotal,
-    double payPeriodTotal,
-    double totalAnnualWithdrawals,
-    double annualPayPeriodTotal,
-    double totalTrackedAssets,
-    double totalDebt,
-    double netWorth,
+    BigDecimal totalMonthlyExpenses,
+    BigDecimal paidTotal,
+    BigDecimal unpaidTotal,
+    BigDecimal payPeriodTotal,
+    BigDecimal totalAnnualWithdrawals,
+    BigDecimal annualPayPeriodTotal,
+    BigDecimal totalTrackedAssets,
+    BigDecimal totalDebt,
+    BigDecimal netWorth,
     List<AssetCategoryResponse> assetCategories,
     List<DebtAccountResponse> debtAccounts,
     List<IncomeSummaryItemResponse> incomeSummaryItems,

@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 
 import { EditButton } from './EditButton';
+import { isRentReserveAccount, RENT_RESERVE_ACCOUNT_NAME } from './financialsAnchors';
 import { currency } from './financialsFormatters';
 import type { AssetFormState, DraftAssetAccount, DraftAssetCategory } from './financialsTypes';
 import { RemoveButton } from './RemoveButton';
@@ -29,7 +30,13 @@ export function AssetTable({
   return (
     <section className="expenses-layout">
       <div className="table-wrap">
-        <table>
+        <table className="account-table">
+          <colgroup>
+            <col className="name-column" />
+            <col className="company-column" />
+            <col className="amount-column" />
+            <col className="actions-column" />
+          </colgroup>
           <caption>{category.label}</caption>
           <thead>
             <tr>
@@ -51,6 +58,7 @@ export function AssetTable({
                     onClick={() => startAssetEdit(category.key, account)}
                   />
                   <RemoveButton
+                    disabled={isRentReserveAccount(account)}
                     label={`Remove ${account.account}`}
                     onClick={() => requestRemoveAsset(category.key, account)}
                   />
@@ -58,14 +66,10 @@ export function AssetTable({
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={2}>Total</td>
-              <td className="amount">{currency.format(category.total)}</td>
-              <td />
-            </tr>
-          </tfoot>
         </table>
+        <p className="table-total">
+          Total: <strong>{currency.format(category.total)}</strong>
+        </p>
       </div>
 
       <form className="bill-form" onSubmit={(event) => submitAsset(category.key, event)}>
@@ -73,6 +77,7 @@ export function AssetTable({
         <label>
           Account
           <input
+            disabled={isEditingThisCategory && assetForm.account === RENT_RESERVE_ACCOUNT_NAME}
             onChange={(event) => updateAssetForm('account', event.target.value)}
             required
             value={assetForm.account}
@@ -97,6 +102,12 @@ export function AssetTable({
             value={assetForm.amount}
           />
         </label>
+        {isEditingThisCategory && assetForm.account === RENT_RESERVE_ACCOUNT_NAME && (
+          <p className="helper-text">
+            Rent Reserve is required for projections. You can edit the company and amount, but the
+            account name stays fixed.
+          </p>
+        )}
         <div className="form-actions">
           <button type="submit">{isEditingThisCategory ? 'Update Draft' : 'Add to Draft'}</button>
           {isEditingThisCategory && (

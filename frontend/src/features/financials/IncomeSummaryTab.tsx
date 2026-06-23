@@ -1,33 +1,22 @@
 import type { FormEvent } from 'react';
 
-import { EditButton } from './EditButton';
 import { currency } from './financialsFormatters';
 import type { DraftIncomeSummaryItem, IncomeSummaryFormState } from './financialsTypes';
-import { RemoveButton } from './RemoveButton';
 
 export function IncomeSummaryTab({
-  cancelIncomeSummaryEdit,
-  editingIncomeSummaryId,
   incomeSummaryForm,
   incomeSummaryItems,
-  requestRemoveIncomeSummaryItem,
-  startIncomeSummaryEdit,
   submitIncomeSummaryItem,
   updateIncomeSummaryForm,
 }: {
-  cancelIncomeSummaryEdit: () => void;
-  editingIncomeSummaryId: number | null;
   incomeSummaryForm: IncomeSummaryFormState;
   incomeSummaryItems: DraftIncomeSummaryItem[];
-  requestRemoveIncomeSummaryItem: (item: DraftIncomeSummaryItem) => void;
-  startIncomeSummaryEdit: (item: DraftIncomeSummaryItem) => void;
   submitIncomeSummaryItem: (event: FormEvent<HTMLFormElement>) => void;
   updateIncomeSummaryForm: <K extends keyof IncomeSummaryFormState>(
     key: K,
     value: IncomeSummaryFormState[K]
   ) => void;
 }) {
-  const isEditing = editingIncomeSummaryId !== null;
   const categories = Array.from(new Set(incomeSummaryItems.map((item) => item.category)));
 
   return (
@@ -35,7 +24,10 @@ export function IncomeSummaryTab({
       <section className="section-header">
         <div>
           <h2>Income Summary</h2>
-          <p>Net and disposable income assumptions by planning interval.</p>
+          <p>
+            Enter bi-weekly net income once. Annual, monthly, weekly, and disposable income values
+            are calculated automatically.
+          </p>
         </div>
       </section>
 
@@ -43,13 +35,16 @@ export function IncomeSummaryTab({
         <div className="stacked-tables">
           {categories.map((category) => (
             <div className="table-wrap" key={category}>
-              <table>
+              <table className="income-summary-table">
+                <colgroup>
+                  <col className="name-column" />
+                  <col className="amount-column" />
+                </colgroup>
                 <caption>{category}</caption>
                 <thead>
                   <tr>
                     <th>Interval</th>
                     <th>Amount</th>
-                    <th aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -59,16 +54,6 @@ export function IncomeSummaryTab({
                       <tr key={item.id}>
                         <td>{item.interval}</td>
                         <td className="amount">{currency.format(item.amount)}</td>
-                        <td className="actions">
-                          <EditButton
-                            label={`Edit ${item.category} ${item.interval}`}
-                            onClick={() => startIncomeSummaryEdit(item)}
-                          />
-                          <RemoveButton
-                            label={`Remove ${item.category} ${item.interval}`}
-                            onClick={() => requestRemoveIncomeSummaryItem(item)}
-                          />
-                        </td>
                       </tr>
                     ))}
                 </tbody>
@@ -78,31 +63,10 @@ export function IncomeSummaryTab({
         </div>
 
         <form className="bill-form" onSubmit={submitIncomeSummaryItem}>
-          <h2>{isEditing ? 'Edit Income Summary' : 'Add Income Summary'}</h2>
+          <h2>Income Source</h2>
+          <p className="helper-text">Source field: Net Income / Bi-Weekly.</p>
           <label>
-            Category
-            <select
-              onChange={(event) => updateIncomeSummaryForm('category', event.target.value)}
-              value={incomeSummaryForm.category}
-            >
-              <option>Net Income</option>
-              <option>Disposable Income</option>
-            </select>
-          </label>
-          <label>
-            Interval
-            <select
-              onChange={(event) => updateIncomeSummaryForm('interval', event.target.value)}
-              value={incomeSummaryForm.interval}
-            >
-              <option>Annual</option>
-              <option>Month</option>
-              <option>Bi-Weekly</option>
-              <option>Weekly</option>
-            </select>
-          </label>
-          <label>
-            Amount
+            Bi-weekly net income
             <input
               min={0}
               onChange={(event) => updateIncomeSummaryForm('amount', event.target.value)}
@@ -112,13 +76,11 @@ export function IncomeSummaryTab({
               value={incomeSummaryForm.amount}
             />
           </label>
+          <p className="helper-text">
+            Disposable income is calculated from monthly net income minus monthly withdrawals.
+          </p>
           <div className="form-actions">
-            <button type="submit">{isEditing ? 'Update Draft' : 'Add to Draft'}</button>
-            {isEditing && (
-              <button className="ghost" onClick={cancelIncomeSummaryEdit} type="button">
-                Cancel
-              </button>
-            )}
+            <button type="submit">Update Draft</button>
           </div>
         </form>
       </section>

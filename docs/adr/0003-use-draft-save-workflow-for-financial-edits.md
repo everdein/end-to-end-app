@@ -31,6 +31,9 @@ snapshot to the backend in one request:
 PUT /api/financials/expenses/snapshot
 ```
 
+The route name is transitional. The endpoint behaves as a financial snapshot
+aggregate save, not as a narrow monthly expense update.
+
 The backend validates and persists the snapshot, then returns the updated
 snapshot as the new committed state. Derived values such as totals, pay-period
 inclusion, current paycheck status, important date status, debt totals, and net

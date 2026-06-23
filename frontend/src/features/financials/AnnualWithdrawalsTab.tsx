@@ -60,7 +60,15 @@ export function AnnualWithdrawalsTab({
 
       <section className="expenses-layout">
         <div className="table-wrap">
-          <table>
+          <table className="withdrawals-table">
+            <colgroup>
+              <col className="name-column" />
+              <col className="date-column" />
+              <col className="amount-column" />
+              <col className="account-column" />
+              <col className="status-column" />
+              <col className="actions-column" />
+            </colgroup>
             <caption>Annual withdrawals are checked against the active pay period.</caption>
             <thead>
               <tr>
@@ -69,7 +77,6 @@ export function AnnualWithdrawalsTab({
                 <th>Amount</th>
                 <th>Account</th>
                 <th>Paid</th>
-                <th>Pay Period</th>
                 <th aria-label="Actions" />
               </tr>
             </thead>
@@ -80,15 +87,14 @@ export function AnnualWithdrawalsTab({
                   key={withdrawal.id}
                 >
                   <td>{withdrawal.bill}</td>
-                  <td>{formatDate(withdrawal.dueDate)}</td>
+                  <td className="date-cell">{formatDate(withdrawal.dueDate)}</td>
                   <td className="amount">{currency.format(withdrawal.amount)}</td>
                   <td>{withdrawal.account}</td>
-                  <td>
+                  <td className="status-cell">
                     <span className={withdrawal.paid ? 'pill paid' : 'pill unpaid'}>
                       {withdrawal.paid ? 'Paid' : 'Open'}
                     </span>
                   </td>
-                  <td>{withdrawal.inPayPeriod ? formatDate(withdrawal.dueDate) : '-'}</td>
                   <td className="actions">
                     <EditButton
                       label={`Edit ${withdrawal.bill}`}
@@ -102,14 +108,10 @@ export function AnnualWithdrawalsTab({
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2}>Total</td>
-                <td className="amount">{currency.format(totals.totalAnnualWithdrawals)}</td>
-                <td colSpan={4} />
-              </tr>
-            </tfoot>
           </table>
+          <p className="table-total">
+            Total: <strong>{currency.format(totals.totalAnnualWithdrawals)}</strong>
+          </p>
         </div>
 
         <form className="bill-form" onSubmit={submitAnnualWithdrawal}>

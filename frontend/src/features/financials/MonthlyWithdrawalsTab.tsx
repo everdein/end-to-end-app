@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 
 import { EditButton } from './EditButton';
+import { isRentWithdrawal, RENT_WITHDRAWAL_NAME } from './financialsAnchors';
 import { currency, formatDate } from './financialsFormatters';
 import type { BillFormState, DraftAnnualWithdrawal, DraftBill } from './financialsTypes';
 import { RemoveButton } from './RemoveButton';
@@ -98,7 +99,15 @@ export function MonthlyWithdrawalsTab({
       <section className="expenses-layout">
         <div className="stacked-tables">
           <div className="table-wrap">
-            <table>
+            <table className="withdrawals-table compact-date-table">
+              <colgroup>
+                <col className="name-column" />
+                <col className="date-column" />
+                <col className="amount-column" />
+                <col className="account-column" />
+                <col className="status-column" />
+                <col className="actions-column" />
+              </colgroup>
               <caption>
                 Monthly withdrawals from {formatDate(payPeriodStart)} to {formatDate(payPeriodEnd)}{' '}
                 are highlighted.
@@ -106,11 +115,10 @@ export function MonthlyWithdrawalsTab({
               <thead>
                 <tr>
                   <th>Withdrawal</th>
-                  <th>Date</th>
+                  <th>Due Day</th>
                   <th>Amount</th>
                   <th>Account</th>
                   <th>Paid</th>
-                  <th>Pay Period</th>
                   <th aria-label="Actions" />
                 </tr>
               </thead>
@@ -118,18 +126,18 @@ export function MonthlyWithdrawalsTab({
                 {sortedBills.map((bill) => (
                   <tr className={bill.inPayPeriod ? 'in-period' : undefined} key={bill.id}>
                     <td>{bill.bill}</td>
-                    <td>{bill.dueLabel}</td>
+                    <td className="date-cell">{bill.dueLabel}</td>
                     <td className="amount">{currency.format(bill.amount)}</td>
                     <td>{bill.account}</td>
-                    <td>
+                    <td className="status-cell">
                       <span className={bill.paid ? 'pill paid' : 'pill unpaid'}>
                         {bill.paid ? 'Paid' : 'Open'}
                       </span>
                     </td>
-                    <td>{bill.inPayPeriod ? formatDate(bill.dueDate) : '-'}</td>
                     <td className="actions">
                       <EditButton label={`Edit ${bill.bill}`} onClick={() => startEdit(bill)} />
                       <RemoveButton
+                        disabled={isRentWithdrawal(bill)}
                         label={`Remove ${bill.bill}`}
                         onClick={() => requestRemoveBill(bill)}
                       />
@@ -137,18 +145,21 @@ export function MonthlyWithdrawalsTab({
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={2}>Total</td>
-                  <td className="amount">{currency.format(totals.totalMonthlyExpenses)}</td>
-                  <td colSpan={4} />
-                </tr>
-              </tfoot>
             </table>
+            <p className="table-total">
+              Total: <strong>{currency.format(totals.totalMonthlyExpenses)}</strong>
+            </p>
           </div>
 
           <div className="table-wrap">
-            <table>
+            <table className="withdrawals-table">
+              <colgroup>
+                <col className="name-column" />
+                <col className="date-column" />
+                <col className="amount-column" />
+                <col className="account-column" />
+                <col className="status-column" />
+              </colgroup>
               <caption>Annual withdrawals due in this pay period.</caption>
               <thead>
                 <tr>
@@ -164,10 +175,10 @@ export function MonthlyWithdrawalsTab({
                   annualWithdrawalsInPayPeriod.map((withdrawal) => (
                     <tr className="in-period" key={withdrawal.id}>
                       <td>{withdrawal.bill}</td>
-                      <td>{formatDate(withdrawal.dueDate)}</td>
+                      <td className="date-cell">{formatDate(withdrawal.dueDate)}</td>
                       <td className="amount">{currency.format(withdrawal.amount)}</td>
                       <td>{withdrawal.account}</td>
-                      <td>
+                      <td className="status-cell">
                         <span className={withdrawal.paid ? 'pill paid' : 'pill unpaid'}>
                           {withdrawal.paid ? 'Paid' : 'Open'}
                         </span>
@@ -180,14 +191,10 @@ export function MonthlyWithdrawalsTab({
                   </tr>
                 )}
               </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={2}>Pay period annual total</td>
-                  <td className="amount">{currency.format(annualPayPeriodTotal)}</td>
-                  <td colSpan={2} />
-                </tr>
-              </tfoot>
             </table>
+            <p className="table-total">
+              Pay period annual total: <strong>{currency.format(annualPayPeriodTotal)}</strong>
+            </p>
           </div>
         </div>
 
@@ -196,6 +203,7 @@ export function MonthlyWithdrawalsTab({
           <label>
             Withdrawal
             <input
+              disabled={editingId !== null && form.bill === RENT_WITHDRAWAL_NAME}
               onChange={(event) => updateForm('bill', event.target.value)}
               required
               value={form.bill}
@@ -239,6 +247,12 @@ export function MonthlyWithdrawalsTab({
             />
             Paid
           </label>
+          {editingId !== null && form.bill === RENT_WITHDRAWAL_NAME && (
+            <p className="helper-text">
+              Rent is required for projections. You can edit the date, amount, account, and paid
+              status, but the name stays fixed.
+            </p>
+          )}
           <div className="form-actions">
             <button type="submit">{editingId ? 'Update Draft' : 'Add to Draft'}</button>
             {editingId && (

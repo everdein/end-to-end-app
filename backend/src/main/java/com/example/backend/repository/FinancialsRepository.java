@@ -1,8 +1,10 @@
 package com.example.backend.repository;
 
 import java.io.IOException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -241,10 +243,12 @@ public class FinancialsRepository {
       if (parent != null) {
         Files.createDirectories(parent);
       }
+      Path tempPath = dataPath.resolveSibling(dataPath.getFileName() + ".tmp");
+      Path backupPath = dataPath.resolveSibling(dataPath.getFileName() + ".bak");
       objectMapper
           .writerWithDefaultPrettyPrinter()
           .writeValue(
-              dataPath.toFile(),
+              tempPath.toFile(),
               new FinancialsData(
                   payPeriodStart,
                   payPeriodEnd,
@@ -255,8 +259,23 @@ public class FinancialsRepository {
                   incomeSummaryItems,
                   incomeEvents,
                   importantDates));
+
+      if (Files.exists(dataPath)) {
+        Files.copy(dataPath, backupPath, StandardCopyOption.REPLACE_EXISTING);
+      }
+
+      moveIntoPlace(tempPath);
     } catch (IOException exception) {
       throw new IllegalStateException("Unable to save financial data to " + dataPath, exception);
+    }
+  }
+
+  private void moveIntoPlace(Path tempPath) throws IOException {
+    try {
+      Files.move(
+          tempPath, dataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } catch (AtomicMoveNotSupportedException exception) {
+      Files.move(tempPath, dataPath, StandardCopyOption.REPLACE_EXISTING);
     }
   }
 

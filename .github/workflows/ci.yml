@@ -169,10 +169,10 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk
 
-      - name: Snyk test (report only)
+      - name: Snyk test
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --all-projects --severity-threshold=high || true
+        run: snyk test --all-projects --severity-threshold=high
 
   deploy:
     name: Deploy

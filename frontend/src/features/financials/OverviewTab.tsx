@@ -7,10 +7,10 @@ import type { DraftImportantDate, DraftIncomeEvent, ProjectionSummary } from './
 export function Overview({
   annualTotal,
   assetCategories,
-  biWeeklyDisposableIncome,
   currentPaycheck,
   netWorth,
   nextImportantDate,
+  primaryPaycheckIncome,
   projection,
   totalDebt,
   totalTrackedAssets,
@@ -18,10 +18,10 @@ export function Overview({
 }: {
   annualTotal: number;
   assetCategories: AssetCategory[];
-  biWeeklyDisposableIncome?: number;
   currentPaycheck?: DraftIncomeEvent;
   netWorth: number;
   nextImportantDate?: DraftImportantDate;
+  primaryPaycheckIncome?: number;
   projection: ProjectionSummary;
   totalDebt: number;
   totalTrackedAssets: number;
@@ -85,9 +85,9 @@ export function Overview({
             value={currency.format(annualTotal)}
           />
           <MetricCard
-            label="Bi-weekly disposable"
-            tone={(biWeeklyDisposableIncome ?? 0) >= 0 ? 'good' : 'bad'}
-            value={currency.format(biWeeklyDisposableIncome ?? 0)}
+            label="Primary paycheck"
+            tone={(primaryPaycheckIncome ?? 0) >= 0 ? 'good' : 'bad'}
+            value={currency.format(primaryPaycheckIncome ?? 0)}
           />
           {assetCategories.slice(1, 2).map((category) => (
             <MetricCard
@@ -115,7 +115,12 @@ export function Overview({
         </OverviewGroup>
       </section>
       <section className="table-wrap">
-        <table>
+        <table className="overview-table">
+          <colgroup>
+            <col className="name-column" />
+            <col className="count-column" />
+            <col className="amount-column" />
+          </colgroup>
           <caption>Asset category totals</caption>
           <thead>
             <tr>
@@ -128,18 +133,15 @@ export function Overview({
             {assetCategories.map((category) => (
               <tr key={category.key}>
                 <td>{category.label}</td>
-                <td>{category.accounts.length}</td>
+                <td className="count-cell">{category.accounts.length}</td>
                 <td className="amount">{currency.format(category.total)}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={2}>Total tracked assets</td>
-              <td className="amount">{currency.format(totalTrackedAssets)}</td>
-            </tr>
-          </tfoot>
         </table>
+        <p className="table-total">
+          Total tracked assets: <strong>{currency.format(totalTrackedAssets)}</strong>
+        </p>
       </section>
     </>
   );

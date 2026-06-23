@@ -52,7 +52,7 @@
       "id": 2,
       "categoryKey": "cash-savings",
       "categoryLabel": "Cash & Savings",
-      "account": "Emergency Fund",
+      "account": "Rent Reserve",
       "company": "Example Bank",
       "amount": 5000.0
     }
@@ -75,20 +75,8 @@
     {
       "id": 1,
       "category": "Net Income",
-      "interval": "Annual",
-      "amount": 75000.0
-    },
-    {
-      "id": 2,
-      "category": "Net Income",
-      "interval": "Month",
-      "amount": 6250.0
-    },
-    {
-      "id": 3,
-      "category": "Disposable Income",
       "interval": "Bi-Weekly",
-      "amount": 1500.0
+      "amount": 2884.62
     }
   ],
   "incomeEvents": [

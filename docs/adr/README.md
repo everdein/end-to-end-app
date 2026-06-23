@@ -14,6 +14,7 @@ as the codebase evolves.
 | [0002](0002-use-file-backed-json-for-local-financial-data.md)   | Accepted | Use file-backed JSON for local financial data   |
 | [0003](0003-use-draft-save-workflow-for-financial-edits.md)     | Accepted | Use a draft/save workflow for financial edits   |
 | [0004](0004-model-financials-as-a-single-snapshot-aggregate.md) | Accepted | Model financials as a single snapshot aggregate |
+| [0005](0005-enforce-domain-invariants-with-ensure-functions.md) | Accepted | Enforce domain invariants with ensure functions |
 
 ## Template
 

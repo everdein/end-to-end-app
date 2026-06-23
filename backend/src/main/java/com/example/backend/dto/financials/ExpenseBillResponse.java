@@ -1,5 +1,6 @@
 package com.example.backend.dto.financials;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public record ExpenseBillResponse(
@@ -8,7 +9,7 @@ public record ExpenseBillResponse(
     int dueDay,
     String dueLabel,
     LocalDate dueDate,
-    double amount,
+    BigDecimal amount,
     String account,
     boolean paid,
     boolean inPayPeriod) {}

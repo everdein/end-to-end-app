@@ -23,6 +23,10 @@ The frontend loads one snapshot when the app opens, edits local draft state,
 and saves the full snapshot in one request. The backend validates and persists
 the aggregate to local JSON.
 
+The current HTTP routes still include `expenses` from the original monthly bill
+feature. Treat those names as compatibility routes; the conceptual API resource
+is the financial snapshot aggregate.
+
 Display derived values in the UI and API responses rather than persisting them
 as source data. Examples include pay period inclusion, annual withdrawal due
 dates, current paycheck status, important date status, totals, total debt, net
@@ -43,6 +47,16 @@ values can be displayed as context, but they should not compete with the next
 paycheck projection. Projection history and saved projection plans are
 intentionally deferred until there is a clearer workflow for comparing planned
 and actual results.
+
+Projection-specific meaning should be modeled with a few protected anchor rows
+instead of role metadata on every record. The app owns `Rent`, `Rent Reserve`,
+and `Net Income / Bi-Weekly` as projection anchors. Users can edit their
+amounts and normal details, but the UI prevents renaming or deleting them so
+projection math has stable inputs without adding role columns to every table.
+Income summary persistence follows the same source-row idea: only the
+bi-weekly net income source needs to be saved, while annual, monthly, weekly,
+and disposable income values are derived from that source and monthly
+withdrawals.
 
 Displayed dates should use `MM/DD/YYYY`. Native browser date inputs may use the
 browser's internal ISO date value while editing.
