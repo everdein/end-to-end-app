@@ -257,16 +257,26 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /remove rent/i })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /annual withdrawals/i }));
-    fireEvent.click(screen.getByRole('button', { name: /remove amazon prime/i }));
+    const removeButton = screen.getByRole('button', { name: /remove amazon prime/i });
+    removeButton.focus();
+    fireEvent.click(removeButton);
 
     const dialog = screen.getByRole('dialog', { name: /remove annual withdrawal/i });
 
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText(/amazon prime/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus();
 
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(within(dialog).getByRole('button', { name: /^remove$/i })).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(removeButton).toHaveFocus();
     expect(screen.getByRole('cell', { name: /amazon prime/i })).toBeInTheDocument();
   });
 });

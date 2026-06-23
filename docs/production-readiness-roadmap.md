@@ -8,8 +8,7 @@ risk reduction.
 
 - [x] Make Snyk fail CI on high-severity issues instead of reporting only.
 - [x] Add frontend coverage thresholds so test coverage cannot quietly regress.
-- [x] Document the current API as a financial snapshot aggregate, even while the
-      existing routes still include `expenses`.
+- [x] Document the current API as a versioned financial snapshot aggregate.
 - [x] Add projection unit tests for rent reserves, debt payoff, HYSA transfer,
       annual withdrawals, next pay period math, and date edge cases.
 - [x] Extract projection logic from `FinancialsPage.tsx` into a pure domain
@@ -19,14 +18,13 @@ risk reduction.
 
 ## Phase 2 - Before Real Users
 
-- [ ] Replace floating-point money values with integer cents or `BigDecimal`.
-- [ ] Add DTO validation with `@Valid` and Bean Validation annotations.
-- [ ] Centralize API error handling with consistent problem responses.
-- [ ] Rename API routes to snapshot-oriented endpoints such as
-      `/api/financials/snapshot`.
-- [ ] Make local JSON writes atomic and keep a last-known-good backup.
-- [ ] Add controller and persistence tests.
-- [ ] Improve modal accessibility with focus management, Escape handling, and
+- [x] Replace floating-point money values with integer cents or `BigDecimal`.
+- [x] Add DTO validation with `@Valid` and Bean Validation annotations.
+- [x] Centralize API error handling with consistent problem responses.
+- [x] Rename API routes to snapshot-oriented endpoints under `/api/v1/financials`.
+- [x] Make local JSON writes atomic and keep a last-known-good backup.
+- [x] Add controller and persistence tests.
+- [x] Improve modal accessibility with focus management, Escape handling, and
       focus return.
 
 ## Phase 3 - Production Readiness
@@ -35,7 +33,7 @@ risk reduction.
 - [ ] Move persistence to PostgreSQL with migrations and transactions.
 - [ ] Add optimistic concurrency or snapshot versioning.
 - [ ] Add end-to-end tests for core financial workflows.
-- [ ] Add backend coverage reporting and thresholds.
+- [x] Add backend coverage reporting and thresholds.
 - [ ] Harden CI/CD with dependency review, CodeQL, cache consistency, PR coverage
       summaries, and better job independence.
 - [ ] Add production configuration guardrails for CORS, actuator exposure,

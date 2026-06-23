@@ -15,6 +15,7 @@ as the codebase evolves.
 | [0003](0003-use-draft-save-workflow-for-financial-edits.md)     | Accepted | Use a draft/save workflow for financial edits   |
 | [0004](0004-model-financials-as-a-single-snapshot-aggregate.md) | Accepted | Model financials as a single snapshot aggregate |
 | [0005](0005-enforce-domain-invariants-with-ensure-functions.md) | Accepted | Enforce domain invariants with ensure functions |
+| [0006](0006-add-backend-production-readiness-guardrails.md)     | Accepted | Add backend production readiness guardrails     |
 
 ## Template
 

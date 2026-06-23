@@ -126,8 +126,7 @@ class FinancialsServiceTests {
                             new AssetAccountSnapshotRequest(
                                 null, "Pension", "Example", money("1000"))))),
                 List.of(
-                    new DebtAccountSnapshotRequest(
-                        null, "Apple", "Apple Card", money("2130.03")),
+                    new DebtAccountSnapshotRequest(null, "Apple", "Apple Card", money("2130.03")),
                     new DebtAccountSnapshotRequest(null, "Line of Credit", "BECU", money("0"))),
                 List.of(
                     new IncomeSummaryItemSnapshotRequest(

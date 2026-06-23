@@ -71,8 +71,7 @@ public class FinancialsService {
             .map((bill) -> toResponse(bill, startDate, endDate))
             .toList();
 
-    BigDecimal totalMonthlyExpenses =
-        sum(bills.stream().map(ExpenseBillResponse::amount).toList());
+    BigDecimal totalMonthlyExpenses = sum(bills.stream().map(ExpenseBillResponse::amount).toList());
     BigDecimal paidTotal =
         bills.stream()
             .filter(ExpenseBillResponse::paid)

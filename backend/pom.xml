@@ -18,7 +18,12 @@
     <description>Demo project for Spring Boot</description>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
+        <!-- Compile to Java 21 bytecode so JaCoCo 0.8.11 can reliably instrument
+             and analyze classes while the app stays on a widely supported LTS
+             runtime. Revisit this when the project needs newer Java language
+             features and coverage tooling supports the selected class version. -->
+        <maven.compiler.release>21</maven.compiler.release>
         <sortpom.version>4.0.0</sortpom.version>
         <spotless.version>3.7.0</spotless.version>
     </properties>
@@ -34,14 +39,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
         <dependency>
@@ -53,6 +58,7 @@
 
     <build>
         <plugins>
+
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
@@ -84,6 +90,70 @@
                     <sortDependencies>scope,groupId,artifactId</sortDependencies>
                     <sortPlugins>groupId,artifactId</sortPlugins>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <!-- JaCoCo: Java Code Coverage
+                     Generates code coverage reports and enforces minimum coverage thresholds.
+
+                     Configuration:
+                     - prepare-agent: Instrument bytecode at test runtime
+                     - report: Generate HTML/XML/CSV coverage reports (target/site/jacoco/)
+                     - check: Verify minimum line coverage threshold (80% via COVEREDRATIO)
+
+                     Threshold: 80% line coverage across all production classes
+                     (excludes test classes via *Test pattern)
+
+                     Reports available at: target/site/jacoco/index.html -->
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <phase>test</phase>
+                    </execution>
+                    <execution>
+                        <id>coverage-check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>verify</phase>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <excludes>
+                                        <exclude>*Test</exclude>
+                                    </excludes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>

@@ -1,3 +1,28 @@
+/**
+ * Financials API types and endpoints (v1)
+ *
+ * MONEY HANDLING STRATEGY:
+ * - Backend: All monetary values are BigDecimal (precise decimal arithmetic)
+ * - JSON transport: BigDecimal serializes to JSON numbers (string representation of decimals)
+ * - Frontend: Money values are TypeScript `number` (IEEE 754 double precision)
+ *
+ * This design provides production-grade precision on the backend while keeping
+ * frontend forms/display simple. A future phase can migrate frontend to integer
+ * cents (BigInt or number * 100) if stricter arithmetic guarantees are needed.
+ *
+ * For now: display/input treats values as decimal numbers; backend calculations remain authoritative.
+ *
+ * API VERSIONING:
+ * - Explicit /api/v1/ prefix for clear backward compatibility
+ * - Endpoint structure: /api/v1/financials (main resource)
+ *   - GET /api/v1/financials → snapshot
+ *   - PUT /api/v1/financials → save snapshot
+ *   - POST /api/v1/financials/bills → create bill
+ *   - PUT /api/v1/financials/bills/{id} → update bill
+ *   - DELETE /api/v1/financials/bills/{id} → delete bill
+ *   - PUT /api/v1/financials/pay-period → update pay period
+ */
+
 import { httpDelete, httpGet, httpPost, httpPut } from '../client';
 
 export type ExpenseBill = {
@@ -177,14 +202,14 @@ export type ExpenseSnapshot = {
 };
 
 export const financialsService = {
-  getMonthlyExpenses: () => httpGet<ExpenseSnapshot>('/api/financials/expenses'),
+  getMonthlyExpenses: () => httpGet<ExpenseSnapshot>('/api/v1/financials'),
   addBill: (payload: ExpenseBillRequest) =>
-    httpPost<ExpenseBill, ExpenseBillRequest>('/api/financials/expenses', payload),
+    httpPost<ExpenseBill, ExpenseBillRequest>('/api/v1/financials/bills', payload),
   updateBill: (id: number, payload: ExpenseBillRequest) =>
-    httpPut<ExpenseBill, ExpenseBillRequest>(`/api/financials/expenses/${id}`, payload),
-  deleteBill: (id: number) => httpDelete(`/api/financials/expenses/${id}`),
+    httpPut<ExpenseBill, ExpenseBillRequest>(`/api/v1/financials/bills/${id}`, payload),
+  deleteBill: (id: number) => httpDelete(`/api/v1/financials/bills/${id}`),
   updatePayPeriod: (payload: PayPeriodRequest) =>
-    httpPut<ExpenseSnapshot, PayPeriodRequest>('/api/financials/pay-period', payload),
+    httpPut<ExpenseSnapshot, PayPeriodRequest>('/api/v1/financials/pay-period', payload),
   saveSnapshot: (payload: ExpenseSnapshotRequest) =>
-    httpPut<ExpenseSnapshot, ExpenseSnapshotRequest>('/api/financials/expenses/snapshot', payload),
+    httpPut<ExpenseSnapshot, ExpenseSnapshotRequest>('/api/v1/financials', payload),
 };

@@ -24,18 +24,18 @@ class FinancialsControllerTests {
 
     mockMvc
         .perform(
-            post("/api/financials/expenses")
+            post("/api/v1/financials/bills")
                 .contentType("application/json")
                 .content(
                     """
-                    {
-                      "bill": "",
-                      "dueDay": 32,
-                      "amount": -1,
-                      "account": "",
-                      "paid": false
-                    }
-                    """))
+                        {
+                          "bill": "",
+                          "dueDay": 32,
+                          "amount": -1,
+                          "account": "",
+                          "paid": false
+                        }
+                        """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.title").value("Invalid request"))
         .andExpect(jsonPath("$.errors").isArray());
@@ -50,7 +50,7 @@ class FinancialsControllerTests {
     MockMvc mockMvc = mockMvc(financialsService);
 
     mockMvc
-        .perform(delete("/api/financials/expenses/99"))
+        .perform(delete("/api/v1/financials/bills/99"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.detail").value("Bill not found"));
   }

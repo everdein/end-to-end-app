@@ -23,9 +23,9 @@ The frontend loads one snapshot when the app opens, edits local draft state,
 and saves the full snapshot in one request. The backend validates and persists
 the aggregate to local JSON.
 
-The current HTTP routes still include `expenses` from the original monthly bill
-feature. Treat those names as compatibility routes; the conceptual API resource
-is the financial snapshot aggregate.
+The current HTTP routes use `/api/v1/financials` as the conceptual API
+resource. Individual bill endpoints live underneath the aggregate at
+`/api/v1/financials/bills`.
 
 Display derived values in the UI and API responses rather than persisting them
 as source data. Examples include pay period inclusion, annual withdrawal due

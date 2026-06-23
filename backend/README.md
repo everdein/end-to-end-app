@@ -22,7 +22,7 @@ engineering patterns and workflows that can scale over time.
 
 ### Core
 
-- Java 25
+- Java 21
 - Spring Boot 4
 - Spring MVC
 - Maven
@@ -35,6 +35,7 @@ engineering patterns and workflows that can scale over time.
 - Spotless
 - SortPom
 - GitHub Actions
+- JaCoCo
 - Snyk
 - OWASP Dependency Check
 
@@ -42,7 +43,7 @@ engineering patterns and workflows that can scale over time.
 
 ## Requirements
 
-- Java 25+
+- Java 21+
 - No database required
 - No external infrastructure required
 
@@ -58,7 +59,7 @@ java -version
 
 This project assumes:
 
-- Java 25 is installed
+- Java 21 or newer is installed
 - `JAVA_HOME` points to the JDK installation directory
 - `%JAVA_HOME%\bin` is available on the system PATH
 
@@ -117,15 +118,13 @@ http://localhost:8080
 
 ## Available endpoints
 
-The current API is organized around a financial snapshot aggregate. Some route
-names still include `expenses` for compatibility with the original monthly bill
-feature, but the main read and save endpoints operate on the full financial
-workspace.
+The current API is organized around a versioned financial snapshot aggregate.
+The main read and save endpoints operate on the full financial workspace.
 
 ### Get financial snapshot
 
 ```http
-GET /api/financials/expenses
+GET /api/v1/financials
 ```
 
 Returns the current pay period, withdrawals, income summaries, income calendar
@@ -137,7 +136,7 @@ overview totals.
 ### Save financial snapshot
 
 ```http
-PUT /api/financials/expenses/snapshot
+PUT /api/v1/financials
 ```
 
 Persists the full edited financial snapshot in one request. This is the main
@@ -148,10 +147,10 @@ endpoint used by the frontend draft/save workflow.
 ### Granular bill endpoints
 
 ```http
-POST /api/financials/expenses
-PUT /api/financials/expenses/{id}
-DELETE /api/financials/expenses/{id}
-PUT /api/financials/pay-period
+POST /api/v1/financials/bills
+PUT /api/v1/financials/bills/{id}
+DELETE /api/v1/financials/bills/{id}
+PUT /api/v1/financials/pay-period
 ```
 
 These endpoints remain available for direct bill and pay period updates, even

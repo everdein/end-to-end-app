@@ -29,7 +29,7 @@ patterns and workflows that can scale over time.
 ### Backend
 
 - Spring Boot 4
-- Java 25
+- Java 21
 - Maven
 
 ### Tooling / Quality
@@ -40,6 +40,7 @@ patterns and workflows that can scale over time.
 - Snyk
 - GitHub Actions
 - Vitest coverage
+- JaCoCo coverage
 - Spotless
 - SortPom
 
@@ -61,11 +62,11 @@ end-to-end-app/
 
 ## Requirements
 
-- Java 25+
+- Java 21+
 - Node.js 24+
 - npm 10+
 
-For backend commands, make sure `JAVA_HOME` points to the Java 25 JDK. Maven uses
+For backend commands, make sure `JAVA_HOME` points to a Java 21+ JDK. Maven uses
 `JAVA_HOME`, even when `java -version` on your PATH reports a different version.
 
 Verify tools are available:
@@ -140,9 +141,9 @@ Browser                Vite Dev Server                 Spring Boot
   |    (serves React app)    |                             |
   |<-------------------------|                             |
   |                          |                             |
-  |  GET /api/financials/expenses                         |
+  |  GET /api/v1/financials                               |
   |------------------------->|                             |
-  |        (proxy)           |  GET http://localhost:8080/api/financials/expenses
+  |        (proxy)           |  GET http://localhost:8080/api/v1/financials
   |                          |---------------------------->|
   |                          |        JSON response        |
   |                          |<----------------------------|
@@ -161,23 +162,23 @@ Because the Vite proxy is used:
 ## API contract
 
 The financials API currently behaves as a single snapshot aggregate. The
-existing route names still include `expenses` for compatibility, but the primary
+versioned route names use `financials` as the primary resource because the
 read and save endpoints load and persist the full financial workspace.
 
 Financial snapshot endpoints:
 
 ```http
-GET /api/financials/expenses
-PUT /api/financials/expenses/snapshot
-PUT /api/financials/pay-period
+GET /api/v1/financials
+PUT /api/v1/financials
+PUT /api/v1/financials/pay-period
 ```
 
 Granular bill endpoints:
 
 ```http
-POST /api/financials/expenses
-PUT /api/financials/expenses/{id}
-DELETE /api/financials/expenses/{id}
+POST /api/v1/financials/bills
+PUT /api/v1/financials/bills/{id}
+DELETE /api/v1/financials/bills/{id}
 ```
 
 The Financials UI currently uses a draft/save workflow:
