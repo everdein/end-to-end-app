@@ -204,16 +204,64 @@ Connection settings:
 
 ```properties
 SPRING_PROFILES_ACTIVE=postgres
-DATABASE_URL=jdbc:postgresql://localhost:5432/end_to_end_app
-DATABASE_USERNAME=app
-DATABASE_PASSWORD=app
+DATABASE_URL=jdbc:postgresql://localhost:5432/financial_app
+DATABASE_USERNAME=financial_app_user
+DATABASE_PASSWORD=financial_app_password
 ```
+
+### Local PostgreSQL setup with pgAdmin
+
+Use pgAdmin for local setup on Windows because `psql.exe` may be blocked by
+Windows Application Control.
+
+Local server context:
+
+| Purpose        | Value                |
+| -------------- | -------------------- |
+| Host           | `localhost`          |
+| Port           | `5432`               |
+| Admin database | `postgres`           |
+| Admin username | `postgres`           |
+| App database   | `financial_app`      |
+| App username   | `financial_app_user` |
+
+Do not store the local admin password in repository documentation. The backend
+does not use the admin account; it connects with the dedicated app user.
+
+1. Open pgAdmin and connect to the local PostgreSQL server as the admin user.
+2. Create the app login:
+   - Right-click **Login/Group Roles**.
+   - Select **Create** > **Login/Group Role**.
+   - On **General**, set **Name** to `financial_app_user`.
+   - On **Definition**, set **Password** to `financial_app_password`.
+   - On **Privileges**, enable **Can login**.
+   - Leave **Superuser** disabled.
+3. Create the app database:
+   - Right-click **Databases**.
+   - Select **Create** > **Database**.
+   - Set **Database** to `financial_app`.
+   - Set **Owner** to `financial_app_user`.
+4. Verify the app connection:
+   - Add or open a server connection using host `localhost`, port `5432`,
+     database `financial_app`, username `financial_app_user`, and password
+     `financial_app_password`.
+   - Confirm pgAdmin connects successfully as the app user.
 
 The initial schema is managed in:
 
 ```text
 src/main/resources/db/migration/V1__create_financials_schema.sql
+src/main/resources/db/migration/V2__create_financial_snapshot_document.sql
 ```
+
+The active PostgreSQL implementation stores the full financial snapshot in the
+`financial_snapshot_document.snapshot_json` `jsonb` column. This intentionally
+keeps the current frontend behavior unchanged: the browser still loads one
+snapshot, edits a local draft, and saves one snapshot back to the API.
+
+When PostgreSQL is empty, the backend seeds the first active snapshot from
+`backend/data/financials.local.json` when that file exists. If no local file is
+available, it falls back to `backend/data/financials.example.json`.
 
 ---
 
@@ -318,8 +366,9 @@ projects them into the active pay period year so they can be displayed as
 The persisted snapshot currently includes monthly bills, annual withdrawals,
 asset accounts, debt accounts, the bi-weekly net income source item, income
 calendar events, and important dates. Derived income summary rows are calculated
-by the frontend. This is intentionally a single-user local aggregate until the
-app needs database-backed collaboration or integrations.
+by the frontend. The default `json` profile stores this aggregate in a local
+file. The `postgres` profile stores the same aggregate as a PostgreSQL `jsonb`
+document until the project needs more granular relational CRUD.
 
 ---
 
@@ -414,8 +463,9 @@ The backend participates in repository CI pipelines for:
 
 Intentional simplifications:
 
-- JSON remains the default active repository
-- PostgreSQL schema exists, but database-backed CRUD is not implemented yet
+- JSON remains the default local fallback
+- PostgreSQL stores the full snapshot as `jsonb`; granular database-backed CRUD
+  is not implemented yet
 - no authentication
 - no authorization
 - no external APIs

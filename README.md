@@ -253,13 +253,22 @@ infrastructure. To use the database foundation, run the backend with the
 
 ```properties
 SPRING_PROFILES_ACTIVE=postgres
-DATABASE_URL=jdbc:postgresql://localhost:5432/end_to_end_app
-DATABASE_USERNAME=app
-DATABASE_PASSWORD=app
+DATABASE_URL=jdbc:postgresql://localhost:5432/financial_app
+DATABASE_USERNAME=financial_app_user
+DATABASE_PASSWORD=financial_app_password
 ```
 
 The `postgres` profile enables Flyway migrations from
 `backend/src/main/resources/db/migration`.
+
+When the `postgres` profile is active, the backend stores the full financial
+snapshot in PostgreSQL as a `jsonb` document. The frontend API contract and
+draft/save workflow stay unchanged.
+
+Local setup uses PostgreSQL on `localhost:5432`, the admin database/user
+`postgres`, and the dedicated app database/user `financial_app` /
+`financial_app_user`. The admin password is intentionally not documented in the
+repository. Detailed pgAdmin setup notes live in `backend/README.md`.
 
 ---
 

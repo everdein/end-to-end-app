@@ -26,6 +26,7 @@ The first step is intentionally narrow:
 - keep datasource auto-configuration disabled in the default profile
 - add a `postgres` Spring profile for datasource and migration configuration
 - add an initial schema for the current financial snapshot aggregate
+- store the active financial snapshot as a PostgreSQL `jsonb` document first
 - migrate repository behavior in later slices instead of rewriting the full
   feature at once
 
@@ -37,6 +38,6 @@ persistence stories: JSON as the active implementation and PostgreSQL as the
 target implementation.
 
 Follow-up work should add database-backed repositories, CRUD APIs for financial
-records, integration tests around migrations and persistence behavior, and
-eventually snapshot versioning so concurrent writes cannot silently overwrite
-each other.
+records, broader integration tests around migrations and persistence behavior,
+and eventually snapshot versioning so concurrent writes cannot silently
+overwrite each other.

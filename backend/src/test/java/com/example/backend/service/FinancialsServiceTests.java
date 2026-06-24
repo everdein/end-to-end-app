@@ -14,6 +14,7 @@ import com.example.backend.dto.financials.IncomeEventSnapshotRequest;
 import com.example.backend.dto.financials.IncomeSummaryItemSnapshotRequest;
 import com.example.backend.dto.financials.PayPeriodRequest;
 import com.example.backend.repository.FinancialsRepository;
+import com.example.backend.repository.JsonFinancialsSnapshotStore;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -260,7 +261,8 @@ class FinancialsServiceTests {
           ]
         }
         """);
-    return new FinancialsRepository(new ObjectMapper(), dataPath, examplePath);
+    return new FinancialsRepository(
+        new JsonFinancialsSnapshotStore(new ObjectMapper(), dataPath, examplePath));
   }
 
   private BigDecimal money(String value) {

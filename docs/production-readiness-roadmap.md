@@ -27,7 +27,8 @@ by isolated technical concern.
 
 ## Phase A - Make It Real
 
-- [ ] Add PostgreSQL persistence.
+- [x] Add PostgreSQL snapshot persistence.
+- [ ] Add granular PostgreSQL CRUD persistence for financial records.
 - [ ] Introduce a clearer backend domain model around financial records.
 - [ ] Add CRUD APIs for financial records beyond the existing bill endpoints.
 - [ ] Add recurring payday generation.
