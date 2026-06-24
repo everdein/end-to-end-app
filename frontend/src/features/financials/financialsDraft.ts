@@ -10,6 +10,14 @@ import type {
   IncomeEventSnapshotRequest,
   IncomeSummaryItemSnapshotRequest,
 } from '../../api/endpoints/financials';
+import {
+  isRentReserveAccount,
+  isRentWithdrawal,
+  PRIMARY_PAYCHECK_CATEGORY,
+  PRIMARY_PAYCHECK_INTERVAL,
+  RENT_RESERVE_ACCOUNT_NAME,
+  RENT_WITHDRAWAL_NAME,
+} from './financialsAnchors';
 import type {
   AnnualWithdrawalFormState,
   AssetFormState,
@@ -42,7 +50,11 @@ export const emptyAnnualWithdrawalForm: AnnualWithdrawalFormState = {
   account: 'Check',
   paid: false,
 };
-export const emptyAssetForm: AssetFormState = { account: '', company: '', amount: '' };
+export const emptyAssetForm: AssetFormState = {
+  account: '',
+  company: '',
+  amount: '',
+};
 export const emptyIncomeEventForm: IncomeEventFormState = {
   date: '',
   label: '',
@@ -51,7 +63,7 @@ export const emptyIncomeEventForm: IncomeEventFormState = {
 };
 export const emptyIncomeSummaryForm: IncomeSummaryFormState = {
   category: 'Net Income',
-  interval: 'Annual',
+  interval: 'Bi-Weekly',
   amount: '',
 };
 export const emptyImportantDateForm: ImportantDateFormState = {
@@ -121,6 +133,44 @@ export function toSnapshotBill(bill: DraftBill): ExpenseBillSnapshotRequest {
     account: bill.account,
     paid: bill.paid,
   };
+}
+
+export function ensureRentWithdrawal(
+  bills: DraftBill[],
+  payPeriodStart: string,
+  payPeriodEnd: string
+) {
+  if (bills.some(isRentWithdrawal)) {
+    return bills;
+  }
+
+  const legacyRent = bills.find((bill) => bill.bill.toLowerCase().includes('rent'));
+  if (legacyRent) {
+    return bills.map((bill) =>
+      bill.id === legacyRent.id
+        ? toDraftBill({ ...bill, bill: RENT_WITHDRAWAL_NAME }, payPeriodStart, payPeriodEnd)
+        : bill
+    );
+  }
+
+  return [
+    toDraftBill(
+      {
+        id: -100000,
+        bill: RENT_WITHDRAWAL_NAME,
+        dueDay: 1,
+        dueLabel: '',
+        dueDate: '',
+        amount: 0,
+        account: 'Check',
+        paid: false,
+        inPayPeriod: false,
+      },
+      payPeriodStart,
+      payPeriodEnd
+    ),
+    ...bills,
+  ];
 }
 
 export function toAnnualWithdrawalForm(
@@ -200,11 +250,15 @@ export function toSnapshotAnnualWithdrawal(
 }
 
 export function toDraftAssetCategory(category: AssetCategory): DraftAssetCategory {
-  return { ...category, accounts: category.accounts.map((account) => ({ ...account })) };
+  return category;
 }
 
 export function toAssetForm(account: DraftAssetAccount): AssetFormState {
-  return { account: account.account, company: account.company, amount: String(account.amount) };
+  return {
+    account: account.account,
+    company: account.company,
+    amount: String(account.amount),
+  };
 }
 
 export function formToAssetAccount(id: number, form: AssetFormState): DraftAssetAccount {
@@ -236,8 +290,72 @@ export function toSnapshotCategory(category: DraftAssetCategory): AssetCategoryS
   };
 }
 
+export function ensureRentReserveAccount(categories: DraftAssetCategory[]) {
+  const cashSavings = categories.find((category) => category.key === 'cash-savings');
+  if (!cashSavings) {
+    return [
+      ...categories,
+      {
+        accounts: [
+          {
+            id: -100001,
+            account: RENT_RESERVE_ACCOUNT_NAME,
+            company: 'Credit Union',
+            amount: 0,
+          },
+        ],
+        key: 'cash-savings',
+        label: 'Cash & Savings',
+        total: 0,
+      },
+    ];
+  }
+
+  if (cashSavings.accounts.some(isRentReserveAccount)) {
+    return categories;
+  }
+
+  const legacyReserve = cashSavings.accounts.find((account) =>
+    account.account.toLowerCase().includes('rent')
+  );
+
+  return categories.map((category) => {
+    if (category.key !== 'cash-savings') {
+      return category;
+    }
+
+    if (legacyReserve) {
+      return recalculateAssetCategory({
+        ...category,
+        accounts: category.accounts.map((account) =>
+          account.id === legacyReserve.id
+            ? { ...account, account: RENT_RESERVE_ACCOUNT_NAME }
+            : account
+        ),
+      });
+    }
+
+    return recalculateAssetCategory({
+      ...category,
+      accounts: [
+        {
+          id: -100001,
+          account: RENT_RESERVE_ACCOUNT_NAME,
+          company: 'Credit Union',
+          amount: 0,
+        },
+        ...category.accounts,
+      ],
+    });
+  });
+}
+
 export function toDebtForm(account: DraftDebtAccount): AssetFormState {
-  return { account: account.account, company: account.company, amount: String(account.amount) };
+  return {
+    account: account.account,
+    company: account.company,
+    amount: String(account.amount),
+  };
 }
 
 export function formToDebtAccount(id: number, form: AssetFormState): DraftDebtAccount {
@@ -259,7 +377,11 @@ export function toSnapshotDebtAccount(account: DraftDebtAccount): DebtAccountSna
 }
 
 export function toIncomeSummaryForm(item: DraftIncomeSummaryItem): IncomeSummaryFormState {
-  return { category: item.category, interval: item.interval, amount: String(item.amount) };
+  return {
+    category: item.category,
+    interval: item.interval,
+    amount: String(item.amount),
+  };
 }
 
 export function formToIncomeSummaryItem(
@@ -283,6 +405,94 @@ export function toSnapshotIncomeSummaryItem(
     interval: item.interval,
     amount: item.amount,
   };
+}
+
+export function ensurePrimaryPaycheck(items: DraftIncomeSummaryItem[]) {
+  if (
+    items.some(
+      (item) =>
+        item.category === PRIMARY_PAYCHECK_CATEGORY && item.interval === PRIMARY_PAYCHECK_INTERVAL
+    )
+  ) {
+    return items;
+  }
+
+  return [
+    ...items,
+    {
+      id: -100002,
+      category: PRIMARY_PAYCHECK_CATEGORY,
+      interval: PRIMARY_PAYCHECK_INTERVAL,
+      amount: 0,
+    },
+  ];
+}
+
+export function buildDerivedIncomeSummaryItems(
+  items: DraftIncomeSummaryItem[],
+  totalMonthlyWithdrawals: number
+) {
+  const primaryPaycheck = ensurePrimaryPaycheck(items).find(
+    (item) =>
+      item.category === PRIMARY_PAYCHECK_CATEGORY && item.interval === PRIMARY_PAYCHECK_INTERVAL
+  );
+  const biWeeklyNetIncome = primaryPaycheck?.amount ?? 0;
+  const monthlyNetIncome = biWeeklyNetIncome * 2;
+  const annualNetIncome = biWeeklyNetIncome * 26;
+  const monthlyDisposableIncome = monthlyNetIncome - totalMonthlyWithdrawals;
+  const biWeeklyDisposableIncome = monthlyDisposableIncome / 2;
+  const weeklyDisposableIncome = biWeeklyDisposableIncome / 2;
+
+  return [
+    {
+      id: -100003,
+      category: PRIMARY_PAYCHECK_CATEGORY,
+      interval: 'Annual',
+      amount: annualNetIncome,
+    },
+    {
+      id: -100004,
+      category: PRIMARY_PAYCHECK_CATEGORY,
+      interval: 'Month',
+      amount: monthlyNetIncome,
+    },
+    {
+      id: primaryPaycheck?.id ?? -100002,
+      category: PRIMARY_PAYCHECK_CATEGORY,
+      interval: PRIMARY_PAYCHECK_INTERVAL,
+      amount: biWeeklyNetIncome,
+    },
+    {
+      id: -100005,
+      category: PRIMARY_PAYCHECK_CATEGORY,
+      interval: 'Weekly',
+      amount: biWeeklyNetIncome / 2,
+    },
+    {
+      id: -100006,
+      category: 'Disposable Income',
+      interval: 'Annual',
+      amount: monthlyDisposableIncome * 12,
+    },
+    {
+      id: -100007,
+      category: 'Disposable Income',
+      interval: 'Month',
+      amount: monthlyDisposableIncome,
+    },
+    {
+      id: -100008,
+      category: 'Disposable Income',
+      interval: 'Bi-Weekly',
+      amount: biWeeklyDisposableIncome,
+    },
+    {
+      id: -100009,
+      category: 'Disposable Income',
+      interval: 'Weekly',
+      amount: weeklyDisposableIncome,
+    },
+  ];
 }
 
 export function toIncomeEventForm(event: DraftIncomeEvent): IncomeEventFormState {

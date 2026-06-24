@@ -14,7 +14,9 @@ import com.example.backend.dto.financials.IncomeEventSnapshotRequest;
 import com.example.backend.dto.financials.IncomeSummaryItemSnapshotRequest;
 import com.example.backend.dto.financials.PayPeriodRequest;
 import com.example.backend.repository.FinancialsRepository;
+import com.example.backend.repository.JsonFinancialsSnapshotStore;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -36,11 +38,11 @@ class FinancialsServiceTests {
 
     var snapshot = service.getSnapshot();
 
-    assertThat(snapshot.totalMonthlyExpenses()).isCloseTo(1450.00, withinCents());
-    assertThat(snapshot.totalAnnualWithdrawals()).isCloseTo(99.00, withinCents());
-    assertThat(snapshot.totalTrackedAssets()).isCloseTo(15000.00, withinCents());
-    assertThat(snapshot.totalDebt()).isCloseTo(500.00, withinCents());
-    assertThat(snapshot.netWorth()).isCloseTo(14500.00, withinCents());
+    assertThat(snapshot.totalMonthlyExpenses()).isEqualByComparingTo("1450.00");
+    assertThat(snapshot.totalAnnualWithdrawals()).isEqualByComparingTo("99.00");
+    assertThat(snapshot.totalTrackedAssets()).isEqualByComparingTo("15000.00");
+    assertThat(snapshot.totalDebt()).isEqualByComparingTo("500.00");
+    assertThat(snapshot.netWorth()).isEqualByComparingTo("14500.00");
     assertThat(snapshot.bills()).isNotEmpty();
     assertThat(snapshot.annualWithdrawals()).hasSize(1);
     assertThat(snapshot.debtAccounts()).hasSize(1);
@@ -55,15 +57,16 @@ class FinancialsServiceTests {
   void createsUpdatesAndDeletesBill() throws IOException {
     FinancialsService service = new FinancialsService(repository());
 
-    var created = service.addBill(new ExpenseBillRequest("Test Bill", 5, 42.50, "Check", false));
+    var created =
+        service.addBill(new ExpenseBillRequest("Test Bill", 5, money("42.50"), "Check", false));
     assertThat(created.bill()).isEqualTo("Test Bill");
     assertThat(created.dueLabel()).isEqualTo("5th");
 
     var updated =
         service.updateBill(
-            created.id(), new ExpenseBillRequest("Updated Bill", 6, 45, "Apple", true));
+            created.id(), new ExpenseBillRequest("Updated Bill", 6, money("45"), "Apple", true));
     assertThat(updated.bill()).isEqualTo("Updated Bill");
-    assertThat(updated.amount()).isEqualTo(45);
+    assertThat(updated.amount()).isEqualByComparingTo("45");
 
     service.deleteBill(created.id());
     assertThat(service.getSnapshot().bills()).noneMatch((bill) -> bill.id() == created.id());
@@ -108,24 +111,27 @@ class FinancialsServiceTests {
                 LocalDate.of(2026, 6, 12),
                 LocalDate.of(2026, 6, 26),
                 List.of(
-                    new ExpenseBillSnapshotRequest(1L, "Rent", 1, 2600, "Check", true),
-                    new ExpenseBillSnapshotRequest(null, "New Bill", 15, 25, "Apple", false)),
+                    new ExpenseBillSnapshotRequest(1L, "Rent", 1, money("2600"), "Check", true),
+                    new ExpenseBillSnapshotRequest(
+                        null, "New Bill", 15, money("25"), "Apple", false)),
                 List.of(
                     new AnnualWithdrawalSnapshotRequest(
-                        null, "Annual Renewal", 9, 18, 99, "Check", false)),
+                        null, "Annual Renewal", 9, 18, money("99"), "Check", false)),
                 List.of(
                     new AssetCategorySnapshotRequest(
                         "retirement",
                         "Retirement",
                         List.of(
-                            new AssetAccountSnapshotRequest(1L, "401k 10%", "Vanguard", 110653.42),
-                            new AssetAccountSnapshotRequest(null, "Pension", "Example", 1000)))),
+                            new AssetAccountSnapshotRequest(
+                                1L, "401k 10%", "Vanguard", money("110653.42")),
+                            new AssetAccountSnapshotRequest(
+                                null, "Pension", "Example", money("1000"))))),
                 List.of(
-                    new DebtAccountSnapshotRequest(null, "Apple", "Apple Card", 2130.03),
-                    new DebtAccountSnapshotRequest(null, "Line of Credit", "BECU", 0)),
+                    new DebtAccountSnapshotRequest(null, "Apple", "Apple Card", money("2130.03")),
+                    new DebtAccountSnapshotRequest(null, "Line of Credit", "BECU", money("0"))),
                 List.of(
                     new IncomeSummaryItemSnapshotRequest(
-                        null, "Disposable Income", "Bi-Weekly", 1901.58)),
+                        null, "Disposable Income", "Bi-Weekly", money("1901.58"))),
                 List.of(
                     new IncomeEventSnapshotRequest(
                         1L, LocalDate.of(2026, 6, 12), "Paycheck", "Paycheck", 12),
@@ -136,12 +142,13 @@ class FinancialsServiceTests {
                         null, LocalDate.of(2026, 12, 25), "Christmas", "Holiday"))));
 
     assertThat(saved.bills()).hasSize(2);
+    assertThat(saved.bills()).anyMatch((bill) -> bill.bill().equals("Rent"));
     assertThat(saved.annualWithdrawals()).hasSize(1);
-    assertThat(saved.totalMonthlyExpenses()).isCloseTo(2625, withinCents());
-    assertThat(saved.totalAnnualWithdrawals()).isCloseTo(99, withinCents());
-    assertThat(saved.totalTrackedAssets()).isCloseTo(111653.42, withinCents());
-    assertThat(saved.totalDebt()).isCloseTo(2130.03, withinCents());
-    assertThat(saved.netWorth()).isCloseTo(109523.39, withinCents());
+    assertThat(saved.totalMonthlyExpenses()).isEqualByComparingTo("2625");
+    assertThat(saved.totalAnnualWithdrawals()).isEqualByComparingTo("99");
+    assertThat(saved.totalTrackedAssets()).isEqualByComparingTo("111653.42");
+    assertThat(saved.totalDebt()).isEqualByComparingTo("2130.03");
+    assertThat(saved.netWorth()).isEqualByComparingTo("109523.39");
     assertThat(saved.bills()).anyMatch((bill) -> bill.bill().equals("New Bill") && bill.id() > 0);
     assertThat(saved.assetCategories().getFirst().accounts())
         .anyMatch((account) -> account.account().equals("Pension") && account.id() > 0);
@@ -153,6 +160,7 @@ class FinancialsServiceTests {
     assertThat(saved.incomeEvents().getFirst().checksInMonth()).isEqualTo(2);
     assertThat(saved.importantDates())
         .anyMatch((importantDate) -> importantDate.event().equals("Christmas"));
+    assertThat(Files.exists(tempDir.resolve("financials.local.json.bak"))).isTrue();
   }
 
   private FinancialsRepository repository() throws IOException {
@@ -253,10 +261,11 @@ class FinancialsServiceTests {
           ]
         }
         """);
-    return new FinancialsRepository(new ObjectMapper(), dataPath, examplePath);
+    return new FinancialsRepository(
+        new JsonFinancialsSnapshotStore(new ObjectMapper(), dataPath, examplePath));
   }
 
-  private org.assertj.core.data.Offset<Double> withinCents() {
-    return org.assertj.core.data.Offset.offset(0.01);
+  private BigDecimal money(String value) {
+    return new BigDecimal(value);
   }
 }

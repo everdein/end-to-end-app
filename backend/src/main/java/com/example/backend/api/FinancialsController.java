@@ -6,6 +6,7 @@ import com.example.backend.dto.financials.ExpenseSnapshotRequest;
 import com.example.backend.dto.financials.ExpenseSnapshotResponse;
 import com.example.backend.dto.financials.PayPeriodRequest;
 import com.example.backend.service.FinancialsService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,10 +14,26 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Financials API v1
+ *
+ * <p>RESTful API for managing financial snapshots, expense bills, assets, and debts.
+ *
+ * <p>Endpoints: - GET /api/v1/financials → Retrieve current financial snapshot - PUT
+ * /api/v1/financials → Save full financial snapshot - POST /api/v1/financials/bills → Create
+ * expense bill - PUT /api/v1/financials/bills/{id} → Update expense bill - DELETE
+ * /api/v1/financials/bills/{id} → Delete expense bill - PUT /api/v1/financials/pay-period → Update
+ * pay period dates
+ *
+ * <p>Versioning: Explicit /api/v1/ prefix for future compatibility and clear deprecation path when
+ * v2 is introduced.
+ */
 @RestController
+@RequestMapping("/api/v1/financials")
 public class FinancialsController {
 
   private final FinancialsService financialsService;
@@ -25,36 +42,36 @@ public class FinancialsController {
     this.financialsService = financialsService;
   }
 
-  @GetMapping("/api/financials/expenses")
-  public ExpenseSnapshotResponse getMonthlyExpenses() {
+  @GetMapping
+  public ExpenseSnapshotResponse getSnapshot() {
     return financialsService.getSnapshot();
   }
 
-  @PostMapping("/api/financials/expenses")
+  @PostMapping("/bills")
   @ResponseStatus(HttpStatus.CREATED)
-  public ExpenseBillResponse addBill(@RequestBody ExpenseBillRequest request) {
+  public ExpenseBillResponse addBill(@Valid @RequestBody ExpenseBillRequest request) {
     return financialsService.addBill(request);
   }
 
-  @PutMapping("/api/financials/expenses/{id}")
+  @PutMapping("/bills/{id}")
   public ExpenseBillResponse updateBill(
-      @PathVariable long id, @RequestBody ExpenseBillRequest request) {
+      @PathVariable long id, @Valid @RequestBody ExpenseBillRequest request) {
     return financialsService.updateBill(id, request);
   }
 
-  @DeleteMapping("/api/financials/expenses/{id}")
+  @DeleteMapping("/bills/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteBill(@PathVariable long id) {
     financialsService.deleteBill(id);
   }
 
-  @PutMapping("/api/financials/pay-period")
-  public ExpenseSnapshotResponse updatePayPeriod(@RequestBody PayPeriodRequest request) {
+  @PutMapping("/pay-period")
+  public ExpenseSnapshotResponse updatePayPeriod(@Valid @RequestBody PayPeriodRequest request) {
     return financialsService.updatePayPeriod(request);
   }
 
-  @PutMapping("/api/financials/expenses/snapshot")
-  public ExpenseSnapshotResponse saveSnapshot(@RequestBody ExpenseSnapshotRequest request) {
+  @PutMapping
+  public ExpenseSnapshotResponse saveSnapshot(@Valid @RequestBody ExpenseSnapshotRequest request) {
     return financialsService.saveSnapshot(request);
   }
 }

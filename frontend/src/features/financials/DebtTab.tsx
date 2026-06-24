@@ -46,7 +46,13 @@ export function DebtTab({
 
       <section className="expenses-layout">
         <div className="table-wrap">
-          <table>
+          <table className="account-table">
+            <colgroup>
+              <col className="name-column" />
+              <col className="company-column" />
+              <col className="amount-column" />
+              <col className="actions-column" />
+            </colgroup>
             <caption>Debt balances</caption>
             <thead>
               <tr>
@@ -75,14 +81,10 @@ export function DebtTab({
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2}>Total</td>
-                <td className="amount">{currency.format(totalDebt)}</td>
-                <td />
-              </tr>
-            </tfoot>
           </table>
+          <p className="table-total">
+            Total debt: <strong>{currency.format(totalDebt)}</strong>
+          </p>
         </div>
 
         <form className="bill-form" onSubmit={submitDebt}>

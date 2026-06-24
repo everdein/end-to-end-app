@@ -28,8 +28,11 @@ When the user clicks `Save Changes`, the frontend sends the full edited
 snapshot to the backend in one request:
 
 ```http
-PUT /api/financials/expenses/snapshot
+PUT /api/v1/financials
 ```
+
+The endpoint behaves as a financial snapshot aggregate save, not as a narrow
+monthly expense update.
 
 The backend validates and persists the snapshot, then returns the updated
 snapshot as the new committed state. Derived values such as totals, pay-period

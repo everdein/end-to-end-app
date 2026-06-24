@@ -31,6 +31,7 @@ patterns and workflows that can scale over time.
 - Spring Boot 4
 - Java 21
 - Maven
+- PostgreSQL foundation with Flyway migrations
 
 ### Tooling / Quality
 
@@ -40,6 +41,7 @@ patterns and workflows that can scale over time.
 - Snyk
 - GitHub Actions
 - Vitest coverage
+- JaCoCo coverage
 - Spotless
 - SortPom
 
@@ -62,8 +64,11 @@ end-to-end-app/
 ## Requirements
 
 - Java 21+
-- Node.js 20+
+- Node.js 24+
 - npm 10+
+
+For backend commands, make sure `JAVA_HOME` points to a Java 21+ JDK. Maven uses
+`JAVA_HOME`, even when `java -version` on your PATH reports a different version.
 
 Verify tools are available:
 
@@ -71,6 +76,7 @@ Verify tools are available:
 java -version
 node -v
 npm -v
+cd backend && mvnw.cmd -v
 ```
 
 ---
@@ -136,9 +142,9 @@ Browser                Vite Dev Server                 Spring Boot
   |    (serves React app)    |                             |
   |<-------------------------|                             |
   |                          |                             |
-  |  GET /api/financials/expenses                         |
+  |  GET /api/v1/financials                               |
   |------------------------->|                             |
-  |        (proxy)           |  GET http://localhost:8080/api/financials/expenses
+  |        (proxy)           |  GET http://localhost:8080/api/v1/financials
   |                          |---------------------------->|
   |                          |        JSON response        |
   |                          |<----------------------------|
@@ -156,15 +162,24 @@ Because the Vite proxy is used:
 
 ## API contract
 
-Financials endpoints:
+The financials API currently behaves as a single snapshot aggregate. The
+versioned route names use `financials` as the primary resource because the
+read and save endpoints load and persist the full financial workspace.
+
+Financial snapshot endpoints:
 
 ```http
-GET /api/financials/expenses
-PUT /api/financials/expenses/snapshot
-POST /api/financials/expenses
-PUT /api/financials/expenses/{id}
-DELETE /api/financials/expenses/{id}
-PUT /api/financials/pay-period
+GET /api/v1/financials
+PUT /api/v1/financials
+PUT /api/v1/financials/pay-period
+```
+
+Granular bill endpoints:
+
+```http
+POST /api/v1/financials/bills
+PUT /api/v1/financials/bills/{id}
+DELETE /api/v1/financials/bills/{id}
 ```
 
 The Financials UI currently uses a draft/save workflow:
@@ -173,7 +188,8 @@ The Financials UI currently uses a draft/save workflow:
 - edits are made locally in the browser
 - one save request persists the full snapshot to the backend
 
-The individual bill endpoints remain available as a more granular API option.
+The individual bill endpoints remain available as a more granular API option,
+but the current UI treats the snapshot as the source of truth.
 
 ---
 
@@ -186,7 +202,7 @@ sections for:
 - next pay period projections for paycheck income, bills, rent set-asides, debt payoff, and possible HYSA transfer
 - monthly withdrawals with pay period planning
 - annual withdrawals that can be included in the active pay period
-- income summary assumptions by interval
+- income summary derived from one editable bi-weekly net income value
 - income calendar events with received/current/upcoming status
 - retirement accounts
 - investments
@@ -210,7 +226,11 @@ estimate what can go toward credit card debt. If debt is covered, remaining cash
 is shown as a possible Apple HYSA transfer. The current period is shown only as
 supporting context.
 
-Financial data is stored locally by the backend in:
+The Income Summary view stores `Net Income / Bi-Weekly` as the source value.
+Annual, monthly, weekly, and disposable income rows are calculated from that
+source and the current monthly withdrawal total.
+
+Financial data is stored locally by the backend in JSON by default:
 
 ```text
 backend/data/financials.local.json
@@ -225,6 +245,30 @@ backend/data/financials.example.json
 
 If the local file does not exist, the backend creates it from the example file
 on startup.
+
+PostgreSQL is being introduced as the production persistence path. The default
+profile intentionally remains JSON-backed so the app still runs without external
+infrastructure. To use the database foundation, run the backend with the
+`postgres` Spring profile and provide connection settings:
+
+```properties
+SPRING_PROFILES_ACTIVE=postgres
+DATABASE_URL=jdbc:postgresql://localhost:5432/financial_app
+DATABASE_USERNAME=financial_app_user
+DATABASE_PASSWORD=financial_app_password
+```
+
+The `postgres` profile enables Flyway migrations from
+`backend/src/main/resources/db/migration`.
+
+When the `postgres` profile is active, the backend stores the full financial
+snapshot in PostgreSQL as a `jsonb` document. The frontend API contract and
+draft/save workflow stay unchanged.
+
+Local setup uses PostgreSQL on `localhost:5432`, the admin database/user
+`postgres`, and the dedicated app database/user `financial_app` /
+`financial_app_user`. The admin password is intentionally not documented in the
+repository. Detailed pgAdmin setup notes live in `backend/README.md`.
 
 ---
 
@@ -332,10 +376,10 @@ Each subproject README is intentionally self-contained.
 
 Current intentional limitations:
 
-- no database
+- PostgreSQL schema exists, but the active repository is still JSON-backed by default
 - no authentication
 - no routing
-- local file-backed persistence only
+- database-backed CRUD is not implemented yet
 - no deployment infrastructure
 - no external financial website integrations
 

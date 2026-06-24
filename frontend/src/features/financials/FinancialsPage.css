@@ -457,6 +457,7 @@ button.danger {
 
 .table-wrap {
   overflow-x: auto;
+  width: 100%;
 }
 
 .stacked-tables {
@@ -467,6 +468,7 @@ button.danger {
 table {
   border-collapse: collapse;
   font-size: 0.92rem;
+  table-layout: fixed;
   width: 100%;
 }
 
@@ -484,12 +486,72 @@ th {
   text-align: left;
 }
 
+th[aria-label="Actions"] {
+  width: 150px;
+}
+
+.name-column {
+  width: 34%;
+}
+
+.date-column {
+  width: 108px;
+}
+
+.amount-column {
+  width: 118px;
+}
+
+.account-column,
+.company-column,
+.type-column {
+  width: 18%;
+}
+
+.status-column {
+  width: 105px;
+}
+
+.count-column {
+  width: 90px;
+}
+
+.actions-column {
+  width: 150px;
+}
+
+.income-summary-table .name-column {
+  width: auto;
+}
+
+.account-table .name-column,
+.dates-table .name-column,
+.calendar-table .name-column,
+.overview-table .name-column,
+.projection-detail-table .name-column {
+  width: 36%;
+}
+
+.projection-detail-table .name-column {
+  width: auto;
+}
+
+.compact-date-table .date-column {
+  width: 82px;
+}
+
 td,
 th {
   border-bottom: 1px solid #e5eaf0;
+  overflow-wrap: anywhere;
   padding: 10px;
   vertical-align: middle;
-  white-space: nowrap;
+  white-space: normal;
+}
+
+td:first-child,
+th:first-child {
+  min-width: 0;
 }
 
 tr.in-period td {
@@ -522,6 +584,36 @@ tr.projection-row.neutral td {
 
 .amount {
   text-align: right;
+  white-space: nowrap;
+}
+
+.date-cell,
+.status-cell,
+.count-cell {
+  text-align: center;
+}
+
+.withdrawals-table th:nth-child(2),
+.withdrawals-table th:nth-child(5),
+.calendar-table th:first-child,
+.calendar-table th:nth-child(4),
+.calendar-table th:nth-child(5),
+.calendar-table th:nth-child(6),
+.dates-table th:nth-child(2),
+.dates-table th:nth-child(4) {
+  text-align: center;
+}
+
+.withdrawals-table th:nth-child(3),
+.account-table th:nth-child(3),
+.income-summary-table th:nth-child(2),
+.overview-table th:nth-child(3),
+.projection-detail-table th:nth-child(2) {
+  text-align: right;
+}
+
+.overview-table th:nth-child(2) {
+  text-align: center;
 }
 
 .pill {
@@ -530,6 +622,7 @@ tr.projection-row.neutral td {
   font-size: 0.78rem;
   font-weight: 700;
   padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .paid {
@@ -568,23 +661,28 @@ tr.projection-row.neutral td {
 }
 
 .actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
+  overflow-wrap: normal;
+  text-align: right;
+  white-space: nowrap;
+  width: 150px;
 }
 
 .actions button {
+  margin-left: 8px;
   padding: 6px 9px;
 }
 
-.icon-button {
+.actions button:first-child {
+  margin-left: 0;
+}
+
+.action-button {
   align-items: center;
-  border-radius: 999px;
+  border-radius: 6px;
   display: inline-flex;
-  height: 32px;
   justify-content: center;
-  padding: 0;
-  width: 32px;
+  min-width: 0;
+  padding: 6px 9px;
 }
 
 .danger-icon {
@@ -613,9 +711,28 @@ tr.projection-row.neutral td {
   color: #ffffff;
 }
 
-tfoot td {
-  border-top: 2px solid #344054;
-  font-weight: 800;
+.action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.action-button:disabled:hover,
+.action-button:disabled:focus-visible {
+  background: #fff4f2;
+  border-color: #efc5bd;
+  color: #9f1f16;
+}
+
+.table-total {
+  color: #344054;
+  font-weight: 700;
+  margin: 10px 0 0;
+  text-align: right;
+}
+
+.table-total strong {
+  color: #172033;
+  font-size: 1rem;
 }
 
 .bill-form {

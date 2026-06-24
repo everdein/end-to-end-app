@@ -39,7 +39,14 @@ export function ImportantDatesTab({
       </section>
       <section className="expenses-layout">
         <div className="table-wrap">
-          <table>
+          <table className="dates-table">
+            <colgroup>
+              <col className="name-column" />
+              <col className="date-column" />
+              <col className="type-column" />
+              <col className="status-column" />
+              <col className="actions-column" />
+            </colgroup>
             <caption>Calendar dates used for yearly planning.</caption>
             <thead>
               <tr>
@@ -57,9 +64,9 @@ export function ImportantDatesTab({
                   key={importantDate.id}
                 >
                   <td>{importantDate.event}</td>
-                  <td>{formatDate(importantDate.date)}</td>
+                  <td className="date-cell">{formatDate(importantDate.date)}</td>
                   <td>{importantDate.type}</td>
-                  <td>
+                  <td className="status-cell">
                     <span className={`pill ${importantDate.status ?? 'upcoming'}`}>
                       {importantDateStatusLabel(importantDate.status)}
                     </span>

@@ -7,13 +7,18 @@ import { AnnualWithdrawalsTab } from './AnnualWithdrawalsTab';
 import { AssetTable } from './AssetTable';
 import { ConfirmRemoveModal } from './ConfirmRemoveModal';
 import { DebtTab } from './DebtTab';
+import { isPrimaryPaycheck, isRentReserveAccount, isRentWithdrawal } from './financialsAnchors';
 import {
+  buildDerivedIncomeSummaryItems,
   emptyAnnualWithdrawalForm,
   emptyAssetForm,
   emptyForm,
   emptyImportantDateForm,
   emptyIncomeEventForm,
   emptyIncomeSummaryForm,
+  ensurePrimaryPaycheck,
+  ensureRentReserveAccount,
+  ensureRentWithdrawal,
   formToAnnualWithdrawal,
   formToAssetAccount,
   formToDebtAccount,
@@ -47,6 +52,7 @@ import {
   withIncomeEventStatuses,
   withIncomeMonthlyCounts,
 } from './financialsDraft';
+import { buildProjectionSummary } from './financialsProjection';
 import { fetchMonthlyExpenses, saveExpenseSnapshot } from './financialsSlice';
 import type {
   AnnualWithdrawalFormState,
@@ -65,7 +71,6 @@ import type {
   IncomeEventFormState,
   IncomeSummaryFormState,
   PendingRemoval,
-  ProjectionPeriod,
   ProjectionSummary,
 } from './financialsTypes';
 import { ImportantDatesTab } from './ImportantDatesTab';
@@ -105,10 +110,8 @@ export default function FinancialsPage() {
   const [draftIncomeSummaryItems, setDraftIncomeSummaryItems] = useState<DraftIncomeSummaryItem[]>(
     []
   );
-  const [editingIncomeSummaryId, setEditingIncomeSummaryId] = useState<number | null>(null);
   const [incomeSummaryForm, setIncomeSummaryForm] =
     useState<IncomeSummaryFormState>(emptyIncomeSummaryForm);
-  const [nextDraftIncomeSummaryId, setNextDraftIncomeSummaryId] = useState(-1);
   const [draftIncomeEvents, setDraftIncomeEvents] = useState<DraftIncomeEvent[]>([]);
   const [editingIncomeEventId, setEditingIncomeEventId] = useState<number | null>(null);
   const [incomeEventForm, setIncomeEventForm] =
@@ -128,11 +131,20 @@ export default function FinancialsPage() {
 
   useEffect(() => {
     if (snapshot) {
+      const loadedIncomeSummaryItems = ensurePrimaryPaycheck(
+        (snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item }))
+      );
+      const primaryPaycheck = loadedIncomeSummaryItems.find(isPrimaryPaycheck);
+
       setPayPeriodStart(snapshot.payPeriodStart);
       setPayPeriodEnd(snapshot.payPeriodEnd);
       setDraftBills(
-        snapshot.bills.map((bill) =>
-          toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
+        ensureRentWithdrawal(
+          snapshot.bills.map((bill) =>
+            toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
+          ),
+          snapshot.payPeriodStart,
+          snapshot.payPeriodEnd
         )
       );
       setDraftAnnualWithdrawals(
@@ -145,15 +157,18 @@ export default function FinancialsPage() {
       setIsDirty(false);
       setEditingId(null);
       setForm(emptyForm);
-      setDraftAssetCategories(snapshot.assetCategories.map(toDraftAssetCategory));
+      setDraftAssetCategories(
+        ensureRentReserveAccount(snapshot.assetCategories.map(toDraftAssetCategory))
+      );
       setEditingAsset(null);
       setAssetForm(emptyAssetForm);
       setDraftDebtAccounts((snapshot.debtAccounts ?? []).map((account) => ({ ...account })));
       setEditingDebtId(null);
       setDebtForm(emptyAssetForm);
-      setDraftIncomeSummaryItems((snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item })));
-      setEditingIncomeSummaryId(null);
-      setIncomeSummaryForm(emptyIncomeSummaryForm);
+      setDraftIncomeSummaryItems(loadedIncomeSummaryItems);
+      setIncomeSummaryForm(
+        primaryPaycheck ? toIncomeSummaryForm(primaryPaycheck) : emptyIncomeSummaryForm
+      );
       setDraftIncomeEvents(
         withIncomeMonthlyCounts((snapshot.incomeEvents ?? []).map((event) => ({ ...event })))
       );
@@ -230,19 +245,10 @@ export default function FinancialsPage() {
     [draftDebtAccounts]
   );
   const incomeSummaryItems = useMemo(
-    () =>
-      [...draftIncomeSummaryItems].sort(
-        (left, right) =>
-          left.category.localeCompare(right.category) || left.interval.localeCompare(right.interval)
-      ),
-    [draftIncomeSummaryItems]
+    () => buildDerivedIncomeSummaryItems(draftIncomeSummaryItems, totals.totalMonthlyExpenses),
+    [draftIncomeSummaryItems, totals.totalMonthlyExpenses]
   );
-  const biWeeklyDisposableIncome = incomeSummaryItems.find(
-    (item) => item.category === 'Disposable Income' && item.interval === 'Bi-Weekly'
-  );
-  const biWeeklyNetIncome = incomeSummaryItems.find(
-    (item) => item.category === 'Net Income' && item.interval === 'Bi-Weekly'
-  );
+  const primaryPaycheckIncome = incomeSummaryItems.find(isPrimaryPaycheck);
   const incomeEvents = useMemo(
     () => withIncomeEventStatuses(draftIncomeEvents, todayIso),
     [draftIncomeEvents, todayIso]
@@ -269,65 +275,24 @@ export default function FinancialsPage() {
     (category) => category.key === 'insurance-benefits'
   );
   const projection = useMemo<ProjectionSummary>(() => {
-    const rentBill = sortedBills.find((bill) => bill.bill.toLowerCase().includes('rent'));
-    const rentSavingsBalance =
-      cashSavings?.accounts.find((account) => account.account.toLowerCase().includes('rent'))
-        ?.amount ?? 0;
-    const paycheckIncome = biWeeklyNetIncome?.amount ?? biWeeklyDisposableIncome?.amount ?? 0;
-    const currentPeriod = buildProjectionPeriod(
-      'Current Pay Period',
-      payPeriodStart,
-      payPeriodEnd,
-      sortedBills,
+    const paycheckIncome = primaryPaycheckIncome?.amount ?? 0;
+    return buildProjectionSummary({
+      annualWithdrawals,
       annualWithdrawalsInPayPeriod,
+      cashSavings,
       paycheckIncome,
-      rentBill,
-      rentSavingsBalance
-    );
-    const nextPeriodDates = nextPayPeriod(payPeriodStart, payPeriodEnd);
-    const nextBills = sortedBills.map((bill) =>
-      toDraftBill(bill, nextPeriodDates.start, nextPeriodDates.end)
-    );
-    const nextAnnualWithdrawals = annualWithdrawals.map((withdrawal) =>
-      toDraftAnnualWithdrawal(withdrawal, nextPeriodDates.start, nextPeriodDates.end)
-    );
-    const nextPeriod = buildProjectionPeriod(
-      'Next Pay Period',
-      nextPeriodDates.start,
-      nextPeriodDates.end,
-      nextBills,
-      nextAnnualWithdrawals.filter((withdrawal) => withdrawal.inPayPeriod),
-      paycheckIncome,
-      rentBill,
-      currentPeriod.endingRentSavings
-    );
-    const periods = [currentPeriod.period, nextPeriod.period];
-    const nextPayPeriodCashAfterBills = nextPeriod.period.projectedBeforeDebt;
-    const nextPayPeriodDebtPayment = Math.min(Math.max(nextPayPeriodCashAfterBills, 0), totalDebt);
-    const nextPayPeriodDebtRemaining = Math.max(totalDebt - nextPayPeriodDebtPayment, 0);
-    const nextPayPeriodHysaTransfer = Math.max(nextPayPeriodCashAfterBills - totalDebt, 0);
-
-    return {
-      currentDebt: totalDebt,
-      debtCoveredByProjectedCash: nextPayPeriodDebtPayment,
-      debtCoveragePercent: totalDebt === 0 ? 100 : (nextPayPeriodDebtPayment / totalDebt) * 100,
-      nextPayPeriodCashAfterBills,
-      nextPayPeriodDebtPayment,
-      nextPayPeriodDebtRemaining,
-      nextPayPeriodHysaTransfer,
-      projectedAfterDebt: nextPayPeriodCashAfterBills - totalDebt,
-      projectedBeforeDebt: nextPayPeriodCashAfterBills,
-      remainingDebtAfterProjectedCash: nextPayPeriodDebtRemaining,
-      periods,
-    };
+      payPeriodEnd,
+      payPeriodStart,
+      sortedBills,
+      totalDebt,
+    });
   }, [
     annualWithdrawals,
     annualWithdrawalsInPayPeriod,
-    biWeeklyDisposableIncome,
-    biWeeklyNetIncome,
     cashSavings,
     payPeriodEnd,
     payPeriodStart,
+    primaryPaycheckIncome,
     sortedBills,
     totalDebt,
   ]);
@@ -378,7 +343,12 @@ export default function FinancialsPage() {
       setDraftBills((current) =>
         current.map((bill) =>
           bill.id === editingId
-            ? formToDraftBill(editingId, form, payPeriodStart, payPeriodEnd)
+            ? formToDraftBill(
+                editingId,
+                isRentWithdrawal(bill) ? { ...form, bill: bill.bill } : form,
+                payPeriodStart,
+                payPeriodEnd
+              )
             : bill
         )
       );
@@ -404,7 +374,9 @@ export default function FinancialsPage() {
         annualWithdrawals: annualWithdrawals.map(toSnapshotAnnualWithdrawal),
         assetCategories: assetCategories.map(toSnapshotCategory),
         debtAccounts: debtAccounts.map(toSnapshotDebtAccount),
-        incomeSummaryItems: incomeSummaryItems.map(toSnapshotIncomeSummaryItem),
+        incomeSummaryItems: ensurePrimaryPaycheck(draftIncomeSummaryItems)
+          .filter(isPrimaryPaycheck)
+          .map(toSnapshotIncomeSummaryItem),
         incomeEvents: incomeEvents.map(toSnapshotIncomeEvent),
         importantDates: importantDates.map(toSnapshotImportantDate),
       })
@@ -422,11 +394,15 @@ export default function FinancialsPage() {
   }
 
   function requestRemoveBill(bill: DraftBill) {
+    if (isRentWithdrawal(bill)) {
+      return;
+    }
+
     setPendingRemoval({ id: bill.id, name: bill.bill, type: 'bill' });
   }
 
   function removeBill(id: number) {
-    setDraftBills((current) => current.filter((bill) => bill.id !== id));
+    setDraftBills((current) => current.filter((bill) => bill.id !== id || isRentWithdrawal(bill)));
     setIsDirty(true);
   }
 
@@ -494,11 +470,20 @@ export default function FinancialsPage() {
       return;
     }
 
+    const loadedIncomeSummaryItems = ensurePrimaryPaycheck(
+      (snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item }))
+    );
+    const primaryPaycheck = loadedIncomeSummaryItems.find(isPrimaryPaycheck);
+
     setPayPeriodStart(snapshot.payPeriodStart);
     setPayPeriodEnd(snapshot.payPeriodEnd);
     setDraftBills(
-      snapshot.bills.map((bill) =>
-        toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
+      ensureRentWithdrawal(
+        snapshot.bills.map((bill) =>
+          toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
+        ),
+        snapshot.payPeriodStart,
+        snapshot.payPeriodEnd
       )
     );
     setDraftAnnualWithdrawals(
@@ -506,9 +491,11 @@ export default function FinancialsPage() {
         toDraftAnnualWithdrawal(withdrawal, snapshot.payPeriodStart, snapshot.payPeriodEnd)
       )
     );
-    setDraftAssetCategories(snapshot.assetCategories.map(toDraftAssetCategory));
+    setDraftAssetCategories(
+      ensureRentReserveAccount(snapshot.assetCategories.map(toDraftAssetCategory))
+    );
     setDraftDebtAccounts((snapshot.debtAccounts ?? []).map((account) => ({ ...account })));
-    setDraftIncomeSummaryItems((snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item })));
+    setDraftIncomeSummaryItems(loadedIncomeSummaryItems);
     setDraftIncomeEvents(
       withIncomeMonthlyCounts((snapshot.incomeEvents ?? []).map((event) => ({ ...event })))
     );
@@ -519,7 +506,9 @@ export default function FinancialsPage() {
     cancelAnnualWithdrawalEdit();
     cancelAssetEdit();
     cancelDebtEdit();
-    cancelIncomeSummaryEdit();
+    setIncomeSummaryForm(
+      primaryPaycheck ? toIncomeSummaryForm(primaryPaycheck) : emptyIncomeSummaryForm
+    );
     cancelIncomeEventEdit();
     cancelImportantDateEdit();
     setPendingRemoval(null);
@@ -553,7 +542,14 @@ export default function FinancialsPage() {
           return recalculateAssetCategory({
             ...category,
             accounts: category.accounts.map((account) =>
-              account.id === editingAsset.id ? formToAssetAccount(account.id, assetForm) : account
+              account.id === editingAsset.id
+                ? formToAssetAccount(
+                    account.id,
+                    isRentReserveAccount(account)
+                      ? { ...assetForm, account: account.account }
+                      : assetForm
+                  )
+                : account
             ),
           });
         }
@@ -583,6 +579,10 @@ export default function FinancialsPage() {
   }
 
   function requestRemoveAsset(categoryKey: string, account: DraftAssetAccount) {
+    if (isRentReserveAccount(account)) {
+      return;
+    }
+
     setPendingRemoval({
       categoryKey,
       id: account.id,
@@ -597,7 +597,9 @@ export default function FinancialsPage() {
         category.key === categoryKey
           ? recalculateAssetCategory({
               ...category,
-              accounts: category.accounts.filter((account) => account.id !== id),
+              accounts: category.accounts.filter(
+                (account) => account.id !== id || isRentReserveAccount(account)
+              ),
             })
           : category
       )
@@ -656,46 +658,29 @@ export default function FinancialsPage() {
   function submitIncomeSummaryItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (editingIncomeSummaryId) {
-      setDraftIncomeSummaryItems((current) =>
-        current.map((item) =>
-          item.id === editingIncomeSummaryId
-            ? formToIncomeSummaryItem(editingIncomeSummaryId, incomeSummaryForm)
-            : item
-        )
-      );
-    } else {
-      setDraftIncomeSummaryItems((current) => [
-        ...current,
-        formToIncomeSummaryItem(nextDraftIncomeSummaryId, incomeSummaryForm),
-      ]);
-      setNextDraftIncomeSummaryId((current) => current - 1);
-    }
+    const sourceForm: IncomeSummaryFormState = {
+      ...incomeSummaryForm,
+      category: 'Net Income',
+      interval: 'Bi-Weekly',
+    };
 
-    cancelIncomeSummaryEdit();
+    setDraftIncomeSummaryItems((current) => {
+      const items = ensurePrimaryPaycheck(current);
+      const primaryPaycheck = items.find(isPrimaryPaycheck);
+      const primaryPaycheckId = primaryPaycheck?.id ?? -100002;
+      const updatedPrimaryPaycheck = formToIncomeSummaryItem(primaryPaycheckId, sourceForm);
+
+      return items.map((item) => (isPrimaryPaycheck(item) ? updatedPrimaryPaycheck : item));
+    });
+
+    setIncomeSummaryForm(sourceForm);
     setIsDirty(true);
   }
 
-  function startIncomeSummaryEdit(item: DraftIncomeSummaryItem) {
-    setEditingIncomeSummaryId(item.id);
-    setIncomeSummaryForm(toIncomeSummaryForm(item));
-  }
-
-  function cancelIncomeSummaryEdit() {
-    setEditingIncomeSummaryId(null);
-    setIncomeSummaryForm(emptyIncomeSummaryForm);
-  }
-
-  function requestRemoveIncomeSummaryItem(item: DraftIncomeSummaryItem) {
-    setPendingRemoval({
-      id: item.id,
-      name: `${item.category} ${item.interval}`,
-      type: 'income-summary',
-    });
-  }
-
   function removeIncomeSummaryItem(id: number) {
-    setDraftIncomeSummaryItems((current) => current.filter((item) => item.id !== id));
+    setDraftIncomeSummaryItems((current) =>
+      current.filter((item) => item.id !== id || isPrimaryPaycheck(item))
+    );
     setIsDirty(true);
   }
 
@@ -871,10 +856,10 @@ export default function FinancialsPage() {
                 <Overview
                   annualTotal={totals.totalAnnualWithdrawals}
                   assetCategories={assetCategories}
-                  biWeeklyDisposableIncome={biWeeklyDisposableIncome?.amount}
                   currentPaycheck={currentPaycheck}
                   nextImportantDate={nextImportantDate}
                   netWorth={netWorth}
+                  primaryPaycheckIncome={primaryPaycheckIncome?.amount}
                   projection={projection}
                   totalDebt={totalDebt}
                   totalTrackedAssets={totalTrackedAssets}
@@ -921,12 +906,8 @@ export default function FinancialsPage() {
 
               {activeTab === 'income-summary' && (
                 <IncomeSummaryTab
-                  cancelIncomeSummaryEdit={cancelIncomeSummaryEdit}
-                  editingIncomeSummaryId={editingIncomeSummaryId}
                   incomeSummaryForm={incomeSummaryForm}
                   incomeSummaryItems={incomeSummaryItems}
-                  requestRemoveIncomeSummaryItem={requestRemoveIncomeSummaryItem}
-                  startIncomeSummaryEdit={startIncomeSummaryEdit}
                   submitIncomeSummaryItem={submitIncomeSummaryItem}
                   updateIncomeSummaryForm={updateIncomeSummaryForm}
                 />
@@ -1035,79 +1016,4 @@ export default function FinancialsPage() {
       )}
     </main>
   );
-}
-
-function buildProjectionPeriod(
-  title: string,
-  payPeriodStart: string,
-  payPeriodEnd: string,
-  bills: DraftBill[],
-  annualWithdrawals: DraftAnnualWithdrawal[],
-  paycheckIncome: number,
-  rentBill: DraftBill | undefined,
-  startingRentSavings: number
-): { endingRentSavings: number; period: ProjectionPeriod } {
-  const rentBillAmount = rentBill?.amount ?? 0;
-  const rentDueInPeriod = bills.some((bill) => bill.id === rentBill?.id && bill.inPayPeriod)
-    ? rentBillAmount
-    : 0;
-  const rentCoveredBySavings = Math.min(startingRentSavings, rentDueInPeriod);
-  const rentSavingsAfterDue = Math.max(startingRentSavings - rentDueInPeriod, 0);
-  const rentRemainingNeed = Math.max(rentBillAmount - rentSavingsAfterDue, 0);
-  const rentContribution = Math.min(rentBillAmount / 2, rentRemainingNeed);
-  const projectedBills = bills.filter((bill) => bill.inPayPeriod && bill.id !== rentBill?.id);
-  const monthlyWithdrawalsDue = projectedBills.reduce((total, bill) => total + bill.amount, 0);
-  const annualWithdrawalsDue = annualWithdrawals.reduce(
-    (total, withdrawal) => total + withdrawal.amount,
-    0
-  );
-  const projectedBeforeDebt =
-    paycheckIncome - monthlyWithdrawalsDue - annualWithdrawalsDue - rentContribution;
-
-  return {
-    endingRentSavings: rentSavingsAfterDue + rentContribution,
-    period: {
-      annualWithdrawalsDue,
-      monthlyWithdrawalsDue,
-      paycheckIncome,
-      payPeriodEnd,
-      payPeriodStart,
-      projectedBeforeDebt,
-      rentBillAmount,
-      rentContribution,
-      rentCoveredBySavings,
-      rentRemainingNeed,
-      rentSavingsBalance: startingRentSavings,
-      title,
-      withdrawalLines: projectedBills.map((bill) => ({
-        amount: bill.amount,
-        label: bill.bill,
-      })),
-    },
-  };
-}
-
-function nextPayPeriod(payPeriodStart: string, payPeriodEnd: string) {
-  if (!payPeriodStart || !payPeriodEnd) {
-    return { end: payPeriodEnd, start: payPeriodStart };
-  }
-
-  const start = new Date(`${payPeriodStart}T00:00:00`);
-  const end = new Date(`${payPeriodEnd}T00:00:00`);
-  const periodDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
-  const nextStart = addDays(end, 1);
-  const nextEnd = addDays(nextStart, periodDays - 1);
-
-  return { end: toIsoDate(nextEnd), start: toIsoDate(nextStart) };
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-}
-
-function toIsoDate(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }

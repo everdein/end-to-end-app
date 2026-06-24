@@ -162,7 +162,7 @@ describe('App', () => {
     expect(screen.getByText(/^Tracked assets$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Total debt$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Net worth$/i)).toBeInTheDocument();
-    expect(screen.getByText(/^Bi-weekly disposable$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Primary paycheck$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Current paycheck$/i)).toBeInTheDocument();
     expect(screen.getByText('#12')).toBeInTheDocument();
     expect(screen.getByText(/^Cash after bills$/i)).toBeInTheDocument();
@@ -236,7 +236,8 @@ describe('App', () => {
     expect(screen.getAllByRole('heading', { name: /income summary/i })).not.toHaveLength(0);
     expect(screen.getAllByText(/net income/i)).not.toHaveLength(0);
     expect(screen.getAllByRole('cell', { name: /bi-weekly/i })).not.toHaveLength(0);
-    expect(screen.getByText('$1,901.58')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('3396.25')).toBeInTheDocument();
+    expect(screen.getByText('$4,192.50')).toBeInTheDocument();
   });
 
   it('renders debt tab', () => {
@@ -249,20 +250,33 @@ describe('App', () => {
     expect(screen.getAllByText('$2,130.03')).not.toHaveLength(0);
   });
 
-  it('confirms before removing a withdrawal row', () => {
+  it('locks projection anchors and confirms before removing non-anchor withdrawals', () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('button', { name: /monthly withdrawals/i }));
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }));
+    expect(screen.getByRole('button', { name: /remove rent/i })).toBeDisabled();
 
-    const dialog = screen.getByRole('dialog', { name: /remove withdrawal/i });
+    fireEvent.click(screen.getByRole('button', { name: /annual withdrawals/i }));
+    const removeButton = screen.getByRole('button', { name: /remove amazon prime/i });
+    removeButton.focus();
+    fireEvent.click(removeButton);
+
+    const dialog = screen.getByRole('dialog', { name: /remove annual withdrawal/i });
 
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText(/rent/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/amazon prime/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus();
 
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(within(dialog).getByRole('button', { name: /^remove$/i })).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(screen.getByRole('button', { name: /cancel/i })).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Escape' });
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: /rent/i })).toBeInTheDocument();
+    expect(removeButton).toHaveFocus();
+    expect(screen.getByRole('cell', { name: /amazon prime/i })).toBeInTheDocument();
   });
 });

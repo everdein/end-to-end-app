@@ -1,17 +1,12 @@
 package com.example.backend.repository;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
-import tools.jackson.databind.ObjectMapper;
 
 @Repository
 public class FinancialsRepository {
@@ -23,9 +18,7 @@ public class FinancialsRepository {
   private final AtomicLong nextIncomeSummaryItemId = new AtomicLong(1);
   private final AtomicLong nextIncomeEventId = new AtomicLong(1);
   private final AtomicLong nextImportantDateId = new AtomicLong(1);
-  private final ObjectMapper objectMapper;
-  private final Path dataPath;
-  private final Path examplePath;
+  private final FinancialsSnapshotStore snapshotStore;
   private final List<ExpenseBill> bills = new ArrayList<>();
   private final List<AnnualWithdrawal> annualWithdrawals = new ArrayList<>();
   private final List<AssetAccount> assetAccounts = new ArrayList<>();
@@ -36,13 +29,8 @@ public class FinancialsRepository {
   private LocalDate payPeriodStart = LocalDate.now().withDayOfMonth(1);
   private LocalDate payPeriodEnd = LocalDate.now().withDayOfMonth(15);
 
-  public FinancialsRepository(
-      ObjectMapper objectMapper,
-      @Value("${financials.data.path:data/financials.local.json}") Path dataPath,
-      @Value("${financials.example-data.path:data/financials.example.json}") Path examplePath) {
-    this.objectMapper = objectMapper;
-    this.dataPath = dataPath;
-    this.examplePath = examplePath;
+  public FinancialsRepository(FinancialsSnapshotStore snapshotStore) {
+    this.snapshotStore = snapshotStore;
     load();
   }
 
@@ -192,72 +180,38 @@ public class FinancialsRepository {
   }
 
   private void load() {
-    try {
-      ensureDataFile();
-      FinancialsData data = objectMapper.readValue(dataPath.toFile(), FinancialsData.class);
-      payPeriodStart = data.payPeriodStart();
-      payPeriodEnd = data.payPeriodEnd();
-      bills.clear();
-      bills.addAll(nullSafe(data.bills()));
-      annualWithdrawals.clear();
-      annualWithdrawals.addAll(nullSafe(data.annualWithdrawals()));
-      assetAccounts.clear();
-      assetAccounts.addAll(nullSafe(data.assetAccounts()));
-      debtAccounts.clear();
-      debtAccounts.addAll(nullSafe(data.debtAccounts()));
-      incomeSummaryItems.clear();
-      incomeSummaryItems.addAll(nullSafe(data.incomeSummaryItems()));
-      incomeEvents.clear();
-      incomeEvents.addAll(nullSafe(data.incomeEvents()));
-      importantDates.clear();
-      importantDates.addAll(nullSafe(data.importantDates()));
-      resetNextIds();
-    } catch (IOException exception) {
-      throw new IllegalStateException("Unable to load financial data from " + dataPath, exception);
-    }
-  }
-
-  private void ensureDataFile() throws IOException {
-    Path parent = dataPath.getParent();
-    if (parent != null) {
-      Files.createDirectories(parent);
-    }
-
-    if (Files.exists(dataPath)) {
-      return;
-    }
-
-    if (Files.exists(examplePath)) {
-      Files.copy(examplePath, dataPath);
-      return;
-    }
-
-    persist();
+    FinancialsData data = snapshotStore.load();
+    payPeriodStart = data.payPeriodStart();
+    payPeriodEnd = data.payPeriodEnd();
+    bills.clear();
+    bills.addAll(nullSafe(data.bills()));
+    annualWithdrawals.clear();
+    annualWithdrawals.addAll(nullSafe(data.annualWithdrawals()));
+    assetAccounts.clear();
+    assetAccounts.addAll(nullSafe(data.assetAccounts()));
+    debtAccounts.clear();
+    debtAccounts.addAll(nullSafe(data.debtAccounts()));
+    incomeSummaryItems.clear();
+    incomeSummaryItems.addAll(nullSafe(data.incomeSummaryItems()));
+    incomeEvents.clear();
+    incomeEvents.addAll(nullSafe(data.incomeEvents()));
+    importantDates.clear();
+    importantDates.addAll(nullSafe(data.importantDates()));
+    resetNextIds();
   }
 
   private void persist() {
-    try {
-      Path parent = dataPath.getParent();
-      if (parent != null) {
-        Files.createDirectories(parent);
-      }
-      objectMapper
-          .writerWithDefaultPrettyPrinter()
-          .writeValue(
-              dataPath.toFile(),
-              new FinancialsData(
-                  payPeriodStart,
-                  payPeriodEnd,
-                  bills,
-                  annualWithdrawals,
-                  assetAccounts,
-                  debtAccounts,
-                  incomeSummaryItems,
-                  incomeEvents,
-                  importantDates));
-    } catch (IOException exception) {
-      throw new IllegalStateException("Unable to save financial data to " + dataPath, exception);
-    }
+    snapshotStore.save(
+        new FinancialsData(
+            payPeriodStart,
+            payPeriodEnd,
+            bills,
+            annualWithdrawals,
+            assetAccounts,
+            debtAccounts,
+            incomeSummaryItems,
+            incomeEvents,
+            importantDates));
   }
 
   private void resetNextIds() {
@@ -282,15 +236,4 @@ public class FinancialsRepository {
   private <T> List<T> nullSafe(List<T> value) {
     return value == null ? List.of() : value;
   }
-
-  public record FinancialsData(
-      LocalDate payPeriodStart,
-      LocalDate payPeriodEnd,
-      List<ExpenseBill> bills,
-      List<AnnualWithdrawal> annualWithdrawals,
-      List<AssetAccount> assetAccounts,
-      List<DebtAccount> debtAccounts,
-      List<IncomeSummaryItem> incomeSummaryItems,
-      List<IncomeEvent> incomeEvents,
-      List<ImportantDate> importantDates) {}
 }

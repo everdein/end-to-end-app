@@ -39,7 +39,16 @@ export function IncomeCalendarTab({
       </section>
       <section className="expenses-layout">
         <div className="table-wrap">
-          <table>
+          <table className="calendar-table">
+            <colgroup>
+              <col className="date-column" />
+              <col className="name-column" />
+              <col className="type-column" />
+              <col className="count-column" />
+              <col className="count-column" />
+              <col className="status-column" />
+              <col className="actions-column" />
+            </colgroup>
             <caption>Checks per month are calculated from rows with a check number.</caption>
             <thead>
               <tr>
@@ -58,12 +67,14 @@ export function IncomeCalendarTab({
                   className={event.status === 'current' ? 'current-income' : undefined}
                   key={event.id}
                 >
-                  <td>{formatDate(event.date)}</td>
+                  <td className="date-cell">{formatDate(event.date)}</td>
                   <td>{event.label}</td>
                   <td>{event.type}</td>
-                  <td>{event.checkNumber ?? '-'}</td>
-                  <td>{event.checkNumber === null ? '-' : event.checksInMonth}</td>
-                  <td>
+                  <td className="count-cell">{event.checkNumber ?? '-'}</td>
+                  <td className="count-cell">
+                    {event.checkNumber === null ? '-' : event.checksInMonth}
+                  </td>
+                  <td className="status-cell">
                     <span className={`pill ${event.status ?? 'upcoming'}`}>
                       {incomeStatusLabel(event.status)}
                     </span>

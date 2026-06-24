@@ -28,6 +28,7 @@ import com.example.backend.repository.FinancialsRepository;
 import com.example.backend.repository.ImportantDate;
 import com.example.backend.repository.IncomeEvent;
 import com.example.backend.repository.IncomeSummaryItem;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -70,35 +71,35 @@ public class FinancialsService {
             .map((bill) -> toResponse(bill, startDate, endDate))
             .toList();
 
-    double totalMonthlyExpenses = bills.stream().mapToDouble(ExpenseBillResponse::amount).sum();
-    double paidTotal =
+    BigDecimal totalMonthlyExpenses = sum(bills.stream().map(ExpenseBillResponse::amount).toList());
+    BigDecimal paidTotal =
         bills.stream()
             .filter(ExpenseBillResponse::paid)
-            .mapToDouble(ExpenseBillResponse::amount)
-            .sum();
-    double unpaidTotal = totalMonthlyExpenses - paidTotal;
-    double payPeriodTotal =
+            .map(ExpenseBillResponse::amount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    BigDecimal unpaidTotal = totalMonthlyExpenses.subtract(paidTotal);
+    BigDecimal payPeriodTotal =
         bills.stream()
             .filter(ExpenseBillResponse::inPayPeriod)
-            .mapToDouble(ExpenseBillResponse::amount)
-            .sum();
+            .map(ExpenseBillResponse::amount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     List<AnnualWithdrawalResponse> annualWithdrawals =
         financialsRepository.findAllAnnualWithdrawals().stream()
             .map((withdrawal) -> toResponse(withdrawal, startDate, endDate))
             .toList();
-    double totalAnnualWithdrawals =
-        annualWithdrawals.stream().mapToDouble(AnnualWithdrawalResponse::amount).sum();
-    double annualPayPeriodTotal =
+    BigDecimal totalAnnualWithdrawals =
+        sum(annualWithdrawals.stream().map(AnnualWithdrawalResponse::amount).toList());
+    BigDecimal annualPayPeriodTotal =
         annualWithdrawals.stream()
             .filter(AnnualWithdrawalResponse::inPayPeriod)
-            .mapToDouble(AnnualWithdrawalResponse::amount)
-            .sum();
+            .map(AnnualWithdrawalResponse::amount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     List<AssetCategoryResponse> assetCategories = assetCategories();
-    double totalTrackedAssets =
-        assetCategories.stream().mapToDouble(AssetCategoryResponse::total).sum();
+    BigDecimal totalTrackedAssets =
+        sum(assetCategories.stream().map(AssetCategoryResponse::total).toList());
     List<DebtAccountResponse> debtAccounts = debtAccounts();
-    double totalDebt = debtAccounts.stream().mapToDouble(DebtAccountResponse::amount).sum();
-    double netWorth = totalTrackedAssets - totalDebt;
+    BigDecimal totalDebt = sum(debtAccounts.stream().map(DebtAccountResponse::amount).toList());
+    BigDecimal netWorth = totalTrackedAssets.subtract(totalDebt);
     List<IncomeSummaryItemResponse> incomeSummaryItems = incomeSummaryItems();
     List<IncomeEventResponse> incomeEvents = incomeEvents();
     List<ImportantDateResponse> importantDates = importantDates();
@@ -205,7 +206,7 @@ public class FinancialsService {
         request.paid());
   }
 
-  private void validateBill(String bill, int dueDay, double amount, String account) {
+  private void validateBill(String bill, int dueDay, BigDecimal amount, String account) {
     if (bill == null || bill.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bill name is required");
     }
@@ -218,7 +219,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due day must be between 1 and 31");
     }
 
-    if (amount < 0) {
+    if (isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be positive");
     }
   }
@@ -238,7 +239,7 @@ public class FinancialsService {
   }
 
   private void validateAnnualWithdrawal(
-      String bill, int month, int day, double amount, String account) {
+      String bill, int month, int day, BigDecimal amount, String account) {
     if (bill == null || bill.isBlank()) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Annual withdrawal name is required");
@@ -257,7 +258,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Day is not valid for month");
     }
 
-    if (amount < 0) {
+    if (isNegative(amount)) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Annual withdrawal amount must be positive");
     }
@@ -297,7 +298,7 @@ public class FinancialsService {
         account.amount());
   }
 
-  private void validateAssetAccount(String account, String company, double amount) {
+  private void validateAssetAccount(String account, String company, BigDecimal amount) {
     if (account == null || account.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Asset account is required");
     }
@@ -306,7 +307,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Asset company is required");
     }
 
-    if (amount < 0) {
+    if (isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Asset amount must be positive");
     }
   }
@@ -318,7 +319,7 @@ public class FinancialsService {
         id, request.account().trim(), request.company().trim(), request.amount());
   }
 
-  private void validateDebtAccount(String account, String company, double amount) {
+  private void validateDebtAccount(String account, String company, BigDecimal amount) {
     if (account == null || account.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debt account is required");
     }
@@ -327,7 +328,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debt company is required");
     }
 
-    if (amount < 0) {
+    if (isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debt amount must be positive");
     }
   }
@@ -339,7 +340,7 @@ public class FinancialsService {
         id, request.category().trim(), request.interval().trim(), request.amount());
   }
 
-  private void validateIncomeSummaryItem(String category, String interval, double amount) {
+  private void validateIncomeSummaryItem(String category, String interval, BigDecimal amount) {
     if (category == null || category.isBlank()) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Income category is required");
     }
@@ -348,7 +349,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Income interval is required");
     }
 
-    if (amount < 0) {
+    if (isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Income amount must be positive");
     }
   }
@@ -452,8 +453,8 @@ public class FinancialsService {
     return accountsByCategory.entrySet().stream()
         .map(
             (entry) -> {
-              double total =
-                  entry.getValue().stream().mapToDouble(AssetAccountResponse::amount).sum();
+              BigDecimal total =
+                  sum(entry.getValue().stream().map(AssetAccountResponse::amount).toList());
               return new AssetCategoryResponse(
                   entry.getKey(), labelsByCategory.get(entry.getKey()), total, entry.getValue());
             })
@@ -576,6 +577,14 @@ public class FinancialsService {
       case 3 -> day + "rd";
       default -> day + "th";
     };
+  }
+
+  private BigDecimal sum(List<BigDecimal> values) {
+    return values.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+  }
+
+  private boolean isNegative(BigDecimal amount) {
+    return amount != null && amount.signum() < 0;
   }
 
   private <T> List<T> nullSafe(List<T> value) {
