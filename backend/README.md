@@ -13,7 +13,7 @@ focused on:
 - local development workflows
 - backend tooling and CI integration
 
-The goal is not production complexity, but establishing clean backend
+The goal is not production complexity. The goal is to establish clean backend
 engineering patterns and workflows that can scale over time.
 
 ---
@@ -47,18 +47,34 @@ engineering patterns and workflows that can scale over time.
 ## Requirements
 
 - Java 21+
+- Maven Wrapper through `mvnw.cmd`
 - No database required for the default JSON-backed profile
-- No external infrastructure required
+- PostgreSQL required only for the `postgres` profile
 
 Verify Java installation:
 
-```sh
+```powershell
 java -version
+javac -version
+echo $env:JAVA_HOME
+```
+
+Verify Maven Wrapper:
+
+```powershell
+.\mvnw.cmd -v
+```
+
+Expected:
+
+```text
+Java 21+
+Maven running with Java 21+
 ```
 
 ---
 
-## Environment notes (Windows)
+## Environment notes: Windows
 
 This project assumes:
 
@@ -66,43 +82,95 @@ This project assumes:
 - `JAVA_HOME` points to the JDK installation directory
 - `%JAVA_HOME%\bin` is available on the system PATH
 
----
-
-## Project initialization
-
-This project was generated using Spring Initializr:
+Example:
 
 ```text
-https://start.spring.io
+JAVA_HOME=C:\Program Files\Java\jdk-21.0.11
 ```
 
-Configuration:
+If PowerShell blocks `npm` or other scripts in the full repository setup, allow
+local user scripts:
 
-- Project: Maven
-- Language: Java
-- Spring Boot: 4.x
-- Packaging: Jar
-- Java: 21
-
-Dependencies:
-
-- Spring Web MVC
-- Spring Boot Actuator
-- Lombok
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
 
 ---
 
-## Running the application
+## Running the backend
+
+The backend has two local storage modes.
+
+---
+
+## Path A: Default JSON-backed startup
+
+Use this when you want the backend to run without PostgreSQL.
 
 From the `backend` directory:
 
-### Standard startup
-
-```sh
-./mvnw spring-boot:run
+```powershell
+.\mvnw.cmd spring-boot:run
 ```
 
-### Development profile (recommended)
+Backend URL:
+
+```text
+http://localhost:8080
+```
+
+In this mode, the backend stores data in:
+
+```text
+backend/data/financials.local.json
+```
+
+If that file does not exist, the backend creates it from:
+
+```text
+backend/data/financials.example.json
+```
+
+This is the fastest path after a fresh clone.
+
+---
+
+## Path B: PostgreSQL-backed startup
+
+Use this when testing or developing the database-backed persistence path.
+
+The `postgres` Spring profile enables PostgreSQL persistence using the dedicated
+database user:
+
+```text
+financial_app_user
+```
+
+Important: `financial_app_user` is a PostgreSQL database user. It is not a
+frontend application login.
+
+Connection settings:
+
+```properties
+SPRING_PROFILES_ACTIVE=postgres
+DATABASE_URL=jdbc:postgresql://localhost:5432/financial_app
+DATABASE_USERNAME=financial_app_user
+DATABASE_PASSWORD=financial_app_password
+```
+
+From the repository root, prepare PostgreSQL with:
+
+```powershell
+.\scripts\setup-local-postgres.ps1
+```
+
+Then start the PostgreSQL-backed backend with:
+
+```powershell
+.\scripts\start-backend-postgres.ps1
+```
+
+Or run manually from the `backend` directory:
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE="postgres"
@@ -110,12 +178,19 @@ $env:DATABASE_URL="jdbc:postgresql://localhost:5432/financial_app"
 $env:DATABASE_USERNAME="financial_app_user"
 $env:DATABASE_PASSWORD="financial_app_password"
 
-./mvnw.cmd -Pdev spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
-The `dev` profile enables Spring Boot DevTools for improved local development
-experience. The `postgres` Spring profile enables PostgreSQL persistence using
-the dedicated `financial_app_user` account.
+To include the Maven `dev` profile and Spring Boot DevTools:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="postgres"
+$env:DATABASE_URL="jdbc:postgresql://localhost:5432/financial_app"
+$env:DATABASE_USERNAME="financial_app_user"
+$env:DATABASE_PASSWORD="financial_app_password"
+
+.\mvnw.cmd -Pdev spring-boot:run
+```
 
 Backend URL:
 
@@ -129,10 +204,271 @@ The frontend runs separately at:
 http://localhost:3000/
 ```
 
-From the repository root, the PostgreSQL-backed backend can also be started with:
+---
+
+## Local PostgreSQL setup
+
+PostgreSQL is the planned production persistence path. The default backend mode
+still uses JSON-backed local storage, but the `postgres` profile and initial
+schema migrations are available for database-backed development.
+
+The preferred setup path is the repository setup script, run from the repository
+root:
+
+```powershell
+.\scripts\setup-local-postgres.ps1
+```
+
+The script prompts for the local PostgreSQL admin password for user `postgres`.
+This password is not stored by the script or documented in the repository.
+
+The script creates or updates:
+
+```text
+Database: financial_app
+Database user: financial_app_user
+Database password: financial_app_password
+```
+
+It also runs the schema migrations from:
+
+```text
+backend/src/main/resources/db/migration/V1__create_financials_schema.sql
+backend/src/main/resources/db/migration/V2__create_financial_snapshot_document.sql
+```
+
+The script is idempotent and can be safely rerun. If the database already
+exists, it skips database creation. If the schema already exists, it skips the
+migrations and verifies the `financial_snapshot_document` table.
+
+After setup completes, start the PostgreSQL-backed backend from the repository
+root:
 
 ```powershell
 .\scripts\start-backend-postgres.ps1
+```
+
+Manual pgAdmin and `psql` setup steps below are kept as a fallback for
+troubleshooting or learning purposes.
+
+---
+
+## Local server context
+
+| Purpose        | Value                    |
+| -------------- | ------------------------ |
+| Host           | `localhost`              |
+| Port           | `5432`                   |
+| Admin database | `postgres`               |
+| Admin username | `postgres`               |
+| App database   | `financial_app`          |
+| App username   | `financial_app_user`     |
+| App password   | `financial_app_password` |
+
+Do not store the local PostgreSQL admin password in repository documentation.
+The backend does not use the admin account; it connects with the dedicated app
+database user.
+
+---
+
+## Test the PostgreSQL setup script
+
+To test the setup script without touching the real `financial_app` database, run
+it against a throwaway database:
+
+```powershell
+.\scripts\setup-local-postgres.ps1 -AppDatabase financial_app_script_test
+```
+
+Run it a second time to verify it is repeatable/idempotent. The second run
+should skip database creation and existing migrations.
+
+Clean up the throwaway database:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U postgres -d postgres -c "DROP DATABASE IF EXISTS financial_app_script_test;"
+```
+
+---
+
+## Manual PostgreSQL setup with pgAdmin
+
+Use this path when setting up manually or debugging the setup script.
+
+1. Open pgAdmin.
+2. Connect to the local PostgreSQL server as the admin user:
+   - Host: `localhost`
+   - Port: `5432`
+   - Database: `postgres`
+   - User: `postgres`
+3. Open Query Tool.
+4. Run:
+
+```sql
+CREATE USER financial_app_user WITH PASSWORD 'financial_app_password';
+CREATE DATABASE financial_app OWNER financial_app_user;
+GRANT ALL PRIVILEGES ON DATABASE financial_app TO financial_app_user;
+```
+
+If the user already exists but the password is wrong:
+
+```sql
+ALTER USER financial_app_user WITH PASSWORD 'financial_app_password';
+```
+
+If the database already exists:
+
+```sql
+ALTER DATABASE financial_app OWNER TO financial_app_user;
+GRANT ALL PRIVILEGES ON DATABASE financial_app TO financial_app_user;
+```
+
+---
+
+## Verify the app database connection
+
+In pgAdmin, create or open a server connection using:
+
+```text
+Server Name: Financial App Local
+Host name/address: localhost
+Port: 5432
+Database: financial_app
+User: financial_app_user
+Password: financial_app_password
+```
+
+Open Query Tool and run:
+
+```sql
+SELECT current_database(), current_user;
+```
+
+Expected:
+
+```text
+financial_app | financial_app_user
+```
+
+---
+
+## Manual database migrations
+
+The initial schema is managed in:
+
+```text
+src/main/resources/db/migration/V1__create_financials_schema.sql
+src/main/resources/db/migration/V2__create_financial_snapshot_document.sql
+```
+
+The preferred path is still:
+
+```powershell
+.\scripts\setup-local-postgres.ps1
+```
+
+If `psql` is available on the PATH, run from the repository root:
+
+```powershell
+psql -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V1__create_financials_schema.sql
+
+psql -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V2__create_financial_snapshot_document.sql
+```
+
+If `psql` is not recognized on Windows, use the full path:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V1__create_financials_schema.sql
+
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V2__create_financial_snapshot_document.sql
+```
+
+When prompted for the password, use:
+
+```text
+financial_app_password
+```
+
+Verify the schema:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app
+```
+
+Inside `psql`:
+
+```sql
+\dt
+SELECT count(*) FROM financial_snapshot_document;
+\q
+```
+
+Expected tables:
+
+```text
+annual_withdrawal
+asset_account
+debt_account
+financial_snapshot
+financial_snapshot_document
+important_date
+income_event
+income_summary_item
+monthly_withdrawal
+```
+
+A `financial_snapshot_document` count of `0` is normal on a fresh database.
+
+---
+
+## Financial data storage
+
+Financial data is stored in a local JSON file by default:
+
+```text
+backend/data/financials.local.json
+```
+
+That file is ignored by Git and should contain real local financial data only on
+the developer's machine.
+
+The committed safe template lives at:
+
+```text
+backend/data/financials.example.json
+```
+
+On startup, `FinancialsRepository` creates `financials.local.json` from the
+example file when the local file does not already exist. This keeps the feature
+usable after a fresh clone without committing personal data.
+
+The storage path can be overridden with Spring configuration:
+
+```properties
+financials.data.path=data/financials.local.json
+financials.example-data.path=data/financials.example.json
+```
+
+When the `postgres` profile is active, the backend stores the full financial
+snapshot in PostgreSQL as a `jsonb` document:
+
+```text
+financial_snapshot_document.snapshot_json
+```
+
+This intentionally keeps the frontend API contract unchanged. The browser still
+loads one snapshot, edits a local draft, and saves one snapshot back to the API.
+
+When PostgreSQL is empty, the backend seeds the first active snapshot from:
+
+```text
+backend/data/financials.local.json
+```
+
+If no local file is available, it falls back to:
+
+```text
+backend/data/financials.example.json
 ```
 
 ---
@@ -152,8 +488,6 @@ Returns the current pay period, withdrawals, income summaries, income calendar
 events, asset category totals, debt balances, important dates, and calculated
 overview totals.
 
----
-
 ### Save financial snapshot
 
 ```http
@@ -162,8 +496,6 @@ PUT /api/v1/financials
 
 Persists the full edited financial snapshot in one request. This is the main
 endpoint used by the frontend draft/save workflow.
-
----
 
 ### Granular bill endpoints
 
@@ -179,107 +511,23 @@ though the current UI saves the full snapshot as the source of truth.
 
 ---
 
-## Financial data storage
+## Local frontend integration
 
-Financial data is stored in a local JSON file by default:
+The frontend communicates with the backend through the Vite development proxy.
 
-```text
-backend/data/financials.local.json
-```
-
-That file is ignored by Git and should contain the user's real local financial
-data. The committed template lives at:
+Frontend requests:
 
 ```text
-backend/data/financials.example.json
+/api/*
 ```
 
-On startup, `FinancialsRepository` creates `financials.local.json` from the
-example file when the local file does not already exist. This keeps the feature
-usable after a fresh clone without committing personal data.
-
-The storage path can be overridden with Spring configuration:
-
-```properties
-financials.data.path=data/financials.local.json
-financials.example-data.path=data/financials.example.json
-```
-
-## PostgreSQL profile
-
-PostgreSQL is the planned production persistence path. The current application
-still uses the JSON repository by default, but a database profile and initial
-schema migrations are available for the migration work.
-
-Run with the `postgres` profile to enable datasource auto-configuration and
-Flyway:
-
-```sh
-./mvnw spring-boot:run
-```
-
-Connection settings:
-
-```properties
-SPRING_PROFILES_ACTIVE=postgres
-DATABASE_URL=jdbc:postgresql://localhost:5432/financial_app
-DATABASE_USERNAME=financial_app_user
-DATABASE_PASSWORD=financial_app_password
-```
-
-### Local PostgreSQL setup with pgAdmin
-
-Use pgAdmin for local setup on Windows because `psql.exe` may be blocked by
-Windows Application Control.
-
-Local server context:
-
-| Purpose        | Value                |
-| -------------- | -------------------- |
-| Host           | `localhost`          |
-| Port           | `5432`               |
-| Admin database | `postgres`           |
-| Admin username | `postgres`           |
-| App database   | `financial_app`      |
-| App username   | `financial_app_user` |
-
-Do not store the local admin password in repository documentation. The backend
-does not use the admin account; it connects with the dedicated app user.
-
-1. Open pgAdmin and connect to the local PostgreSQL server as the admin user.
-2. Create the app login:
-   - Right-click **Login/Group Roles**.
-   - Select **Create** > **Login/Group Role**.
-   - On **General**, set **Name** to `financial_app_user`.
-   - On **Definition**, set **Password** to `financial_app_password`.
-   - On **Privileges**, enable **Can login**.
-   - Leave **Superuser** disabled.
-3. Create the app database:
-   - Right-click **Databases**.
-   - Select **Create** > **Database**.
-   - Set **Database** to `financial_app`.
-   - Set **Owner** to `financial_app_user`.
-4. Verify the app connection:
-   - Add or open a server connection using host `localhost`, port `5432`,
-     database `financial_app`, username `financial_app_user`, and password
-     `financial_app_password`.
-   - Confirm pgAdmin connects successfully as the app user.
-
-The initial schema is managed in:
+are proxied to:
 
 ```text
-src/main/resources/db/migration/V1__create_financials_schema.sql
-src/main/resources/db/migration/V2__create_financial_snapshot_document.sql
+http://localhost:8080
 ```
 
-The active PostgreSQL implementation stores the full financial snapshot in the
-`financial_snapshot_document.snapshot_json` `jsonb` column. This intentionally
-keeps the current frontend behavior unchanged: the browser still loads one
-snapshot, edits a local draft, and saves one snapshot back to the API.
-
-When PostgreSQL is empty, the backend seeds the first active snapshot from
-`backend/data/financials.local.json` when that file exists. If no local file is
-available, it falls back to `backend/data/financials.example.json`.
+This avoids local CORS configuration requirements during development.
 
 ---
 
@@ -297,8 +545,11 @@ backend/
 |   |-- com/example/backend/repository/
 |   |-- com/example/backend/service/
 |   `-- com/example/backend/BackendApplication.java
+|-- src/main/resources/
+|   `-- db/migration/
+|       |-- V1__create_financials_schema.sql
+|       `-- V2__create_financial_snapshot_document.sql
 |-- src/test/java/
-|-- src/main/resources/db/migration/
 |-- pom.xml
 `-- README.md
 ```
@@ -336,6 +587,8 @@ Responsibilities:
 
 - loading local JSON data
 - writing local JSON data
+- loading PostgreSQL-backed snapshot data
+- writing PostgreSQL-backed snapshot data
 - assigning IDs for new local rows
 - keeping persistence concerns out of controllers
 
@@ -384,9 +637,11 @@ projects them into the active pay period year so they can be displayed as
 The persisted snapshot currently includes monthly bills, annual withdrawals,
 asset accounts, debt accounts, the bi-weekly net income source item, income
 calendar events, and important dates. Derived income summary rows are calculated
-by the frontend. The default `json` profile stores this aggregate in a local
-file. The `postgres` profile stores the same aggregate as a PostgreSQL `jsonb`
-document until the project needs more granular relational CRUD.
+by the frontend.
+
+The default mode stores this aggregate in a local JSON file. The `postgres`
+profile stores the same aggregate as a PostgreSQL `jsonb` document until the
+project needs more granular relational CRUD.
 
 ---
 
@@ -403,20 +658,26 @@ Benefits:
 - improved local iteration speed
 - enhanced development workflow
 
+Run with DevTools enabled:
+
+```powershell
+.\mvnw.cmd -Pdev spring-boot:run
+```
+
 ### Spotless
 
 Spotless is used to enforce consistent Java formatting.
 
 Format Java source:
 
-```sh
-./mvnw spotless:apply
+```powershell
+.\mvnw.cmd spotless:apply
 ```
 
 Verify formatting:
 
-```sh
-./mvnw spotless:check
+```powershell
+.\mvnw.cmd spotless:check
 ```
 
 ### SortPom
@@ -425,43 +686,25 @@ SortPom is used to keep `pom.xml` consistently organized and formatted.
 
 Format `pom.xml`:
 
-```sh
-./mvnw sortpom:sort
+```powershell
+.\mvnw.cmd sortpom:sort
 ```
 
 Verify `pom.xml` formatting:
 
-```sh
-./mvnw sortpom:verify
+```powershell
+.\mvnw.cmd sortpom:verify
 ```
 
 ---
 
-## Local frontend integration
+## Build the backend
 
-The frontend communicates with the backend through the Vite development proxy.
-
-Frontend requests:
-
-```text
-/api/*
+```powershell
+.\mvnw.cmd clean verify
 ```
-
-are proxied to:
-
-```text
-http://localhost:8080
-```
-
-This avoids local CORS configuration requirements during development.
 
 ---
-
-## Build the application
-
-```sh
-./mvnw clean verify
-```
 
 ## PostgreSQL integration test
 
@@ -477,11 +720,105 @@ $env:DATABASE_URL="jdbc:postgresql://localhost:5432/financial_app"
 $env:DATABASE_USERNAME="financial_app_user"
 $env:DATABASE_PASSWORD="financial_app_password"
 
-./mvnw test "-Dtest=PostgresFinancialsSnapshotStoreIT" "-Djacoco.skip=true"
+.\mvnw.cmd test "-Dtest=PostgresFinancialsSnapshotStoreIT" "-Djacoco.skip=true"
 ```
 
 The `jacoco.skip` flag keeps this local database smoke test focused and avoids
 Java agent noise when running on newer local JDKs.
+
+---
+
+## Troubleshooting
+
+### Backend fails with `password authentication failed for user "financial_app_user"`
+
+The backend reached PostgreSQL, but the password for `financial_app_user` does
+not match `DATABASE_PASSWORD`.
+
+Fix in pgAdmin as the `postgres` admin user:
+
+```sql
+ALTER USER financial_app_user WITH PASSWORD 'financial_app_password';
+```
+
+Then restart the backend.
+
+---
+
+### Backend fails with `database "financial_app" does not exist`
+
+The PostgreSQL server is running, but the app database has not been created.
+
+Preferred fix:
+
+```powershell
+.\scripts\setup-local-postgres.ps1
+```
+
+Manual fix in pgAdmin as the `postgres` admin user:
+
+```sql
+CREATE DATABASE financial_app OWNER financial_app_user;
+```
+
+---
+
+### Backend fails with `relation "financial_snapshot_document" does not exist`
+
+The backend connected to PostgreSQL, but the schema migrations have not been
+applied.
+
+Preferred fix from the repository root:
+
+```powershell
+.\scripts\setup-local-postgres.ps1
+```
+
+Manual fallback:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V1__create_financials_schema.sql
+
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V2__create_financial_snapshot_document.sql
+```
+
+---
+
+### `psql is not recognized`
+
+PostgreSQL is installed, but the PostgreSQL `bin` directory is not on the PATH.
+
+Use the full executable path:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" --version
+```
+
+Optional long-term fix: add this folder to PATH:
+
+```text
+C:\Program Files\PostgreSQL\18\bin
+```
+
+---
+
+### `financial_snapshot_document` exists but has `0` rows
+
+The schema exists, but no active financial snapshot has been stored in
+PostgreSQL yet.
+
+Check:
+
+```sql
+SELECT count(*) FROM financial_snapshot_document;
+```
+
+A count of `0` is expected on a fresh machine. The backend should seed from
+`backend/data/financials.local.json` or fall back to
+`backend/data/financials.example.json`.
+
+If data from another machine is required, explicitly migrate it by copying the
+ignored local JSON file or exporting/importing the old PostgreSQL data.
 
 ---
 
@@ -494,6 +831,7 @@ The backend participates in repository CI pipelines for:
 - Snyk security analysis
 - OWASP dependency checks
 - formatting verification
+- JaCoCo coverage
 
 ---
 
