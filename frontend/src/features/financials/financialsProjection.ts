@@ -1,4 +1,5 @@
 import { isRentReserveAccount, isRentWithdrawal } from './financialsAnchors';
+import { nextPayPeriod } from './financialsDatePolicy';
 import { toDraftAnnualWithdrawal, toDraftBill } from './financialsDraft';
 import type {
   DraftAnnualWithdrawal,
@@ -127,29 +128,4 @@ export function buildProjectionPeriod(
       })),
     },
   };
-}
-
-export function nextPayPeriod(payPeriodStart: string, payPeriodEnd: string) {
-  if (!payPeriodStart || !payPeriodEnd) {
-    return { end: payPeriodEnd, start: payPeriodStart };
-  }
-
-  const start = new Date(`${payPeriodStart}T00:00:00`);
-  const end = new Date(`${payPeriodEnd}T00:00:00`);
-  const periodDays = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
-  const nextStart = addDays(end, 1);
-  const nextEnd = addDays(nextStart, periodDays - 1);
-
-  return { end: toIsoDate(nextEnd), start: toIsoDate(nextStart) };
-}
-
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-}
-
-function toIsoDate(date: Date) {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }

@@ -6,18 +6,25 @@ import type {
   DebtAccountSnapshotRequest,
   ExpenseBill,
   ExpenseBillSnapshotRequest,
+  ExpenseSnapshot,
+  ExpenseSnapshotRequest,
   ImportantDateSnapshotRequest,
   IncomeEventSnapshotRequest,
   IncomeSummaryItemSnapshotRequest,
 } from '../../api/endpoints/financials';
 import {
-  isRentReserveAccount,
-  isRentWithdrawal,
+  isPrimaryPaycheck,
   PRIMARY_PAYCHECK_CATEGORY,
   PRIMARY_PAYCHECK_INTERVAL,
-  RENT_RESERVE_ACCOUNT_NAME,
-  RENT_WITHDRAWAL_NAME,
 } from './financialsAnchors';
+import {
+  annualDateLabel,
+  annualDueDateForPeriod,
+  annualInputDate,
+  monthlyDueDateForPeriod,
+  parseAnnualDate,
+  todayIso,
+} from './financialsDatePolicy';
 import type {
   AnnualWithdrawalFormState,
   AssetFormState,
@@ -35,6 +42,32 @@ import type {
   IncomeSummaryFormState,
   PendingRemoval,
 } from './financialsTypes';
+
+type BuildExpenseSnapshotInput = {
+  annualWithdrawals: DraftAnnualWithdrawal[];
+  assetCategories: DraftAssetCategory[];
+  debtAccounts: DraftDebtAccount[];
+  incomeEvents: DraftIncomeEvent[];
+  incomeSummaryItems: DraftIncomeSummaryItem[];
+  importantDates: DraftImportantDate[];
+  payPeriodEnd: string;
+  payPeriodStart: string;
+  bills: DraftBill[];
+};
+
+export type FinancialsDraftState = {
+  annualWithdrawalForm: AnnualWithdrawalFormState;
+  draftAnnualWithdrawals: DraftAnnualWithdrawal[];
+  draftAssetCategories: DraftAssetCategory[];
+  draftBills: DraftBill[];
+  draftDebtAccounts: DraftDebtAccount[];
+  draftImportantDates: DraftImportantDate[];
+  draftIncomeEvents: DraftIncomeEvent[];
+  draftIncomeSummaryItems: DraftIncomeSummaryItem[];
+  incomeSummaryForm: IncomeSummaryFormState;
+  payPeriodEnd: string;
+  payPeriodStart: string;
+};
 
 export const emptyForm: BillFormState = {
   bill: '',
@@ -72,6 +105,59 @@ export const emptyImportantDateForm: ImportantDateFormState = {
   type: 'Holiday',
 };
 
+export function createFinancialsDraft(snapshot: ExpenseSnapshot): FinancialsDraftState {
+  const draftIncomeSummaryItems = (snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item }));
+  const primaryPaycheck = draftIncomeSummaryItems.find(isPrimaryPaycheck);
+
+  return {
+    annualWithdrawalForm: emptyAnnualWithdrawalForm,
+    draftAnnualWithdrawals: (snapshot.annualWithdrawals ?? []).map((withdrawal) =>
+      toDraftAnnualWithdrawal(withdrawal, snapshot.payPeriodStart, snapshot.payPeriodEnd)
+    ),
+    draftAssetCategories: snapshot.assetCategories.map(toDraftAssetCategory),
+    draftBills: snapshot.bills.map((bill) =>
+      toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
+    ),
+    draftDebtAccounts: (snapshot.debtAccounts ?? []).map((account) => ({ ...account })),
+    draftImportantDates: (snapshot.importantDates ?? []).map((importantDate) => ({
+      ...importantDate,
+    })),
+    draftIncomeEvents: withIncomeMonthlyCounts(
+      (snapshot.incomeEvents ?? []).map((event) => ({ ...event }))
+    ),
+    draftIncomeSummaryItems,
+    incomeSummaryForm: primaryPaycheck
+      ? toIncomeSummaryForm(primaryPaycheck)
+      : emptyIncomeSummaryForm,
+    payPeriodEnd: snapshot.payPeriodEnd,
+    payPeriodStart: snapshot.payPeriodStart,
+  };
+}
+
+export function buildExpenseSnapshotRequest({
+  annualWithdrawals,
+  assetCategories,
+  bills,
+  debtAccounts,
+  incomeEvents,
+  incomeSummaryItems,
+  importantDates,
+  payPeriodEnd,
+  payPeriodStart,
+}: BuildExpenseSnapshotInput): ExpenseSnapshotRequest {
+  return {
+    payPeriodStart,
+    payPeriodEnd,
+    bills: bills.map(toSnapshotBill),
+    annualWithdrawals: annualWithdrawals.map(toSnapshotAnnualWithdrawal),
+    assetCategories: assetCategories.map(toSnapshotCategory),
+    debtAccounts: debtAccounts.map(toSnapshotDebtAccount),
+    incomeSummaryItems: toSnapshotIncomeSummaryItems(incomeSummaryItems),
+    incomeEvents: incomeEvents.map(toSnapshotIncomeEvent),
+    importantDates: importantDates.map(toSnapshotImportantDate),
+  };
+}
+
 export function toForm(bill: DraftBill): BillFormState {
   return {
     bill: bill.bill,
@@ -87,7 +173,7 @@ export function toDraftBill(
   payPeriodStart: string,
   payPeriodEnd: string
 ): DraftBill {
-  const dueDate = dueDateForPeriod(bill.dueDay, payPeriodStart, payPeriodEnd);
+  const dueDate = monthlyDueDateForPeriod(bill.dueDay, payPeriodStart, payPeriodEnd);
   return {
     id: bill.id,
     bill: bill.bill,
@@ -135,44 +221,6 @@ export function toSnapshotBill(bill: DraftBill): ExpenseBillSnapshotRequest {
   };
 }
 
-export function ensureRentWithdrawal(
-  bills: DraftBill[],
-  payPeriodStart: string,
-  payPeriodEnd: string
-) {
-  if (bills.some(isRentWithdrawal)) {
-    return bills;
-  }
-
-  const legacyRent = bills.find((bill) => bill.bill.toLowerCase().includes('rent'));
-  if (legacyRent) {
-    return bills.map((bill) =>
-      bill.id === legacyRent.id
-        ? toDraftBill({ ...bill, bill: RENT_WITHDRAWAL_NAME }, payPeriodStart, payPeriodEnd)
-        : bill
-    );
-  }
-
-  return [
-    toDraftBill(
-      {
-        id: -100000,
-        bill: RENT_WITHDRAWAL_NAME,
-        dueDay: 1,
-        dueLabel: '',
-        dueDate: '',
-        amount: 0,
-        account: 'Check',
-        paid: false,
-        inPayPeriod: false,
-      },
-      payPeriodStart,
-      payPeriodEnd
-    ),
-    ...bills,
-  ];
-}
-
 export function toAnnualWithdrawalForm(
   withdrawal: DraftAnnualWithdrawal
 ): AnnualWithdrawalFormState {
@@ -201,7 +249,7 @@ export function toDraftAnnualWithdrawal(
     bill: withdrawal.bill,
     month: withdrawal.month,
     day: withdrawal.day,
-    dateLabel: dateLabel(dueDate),
+    dateLabel: annualDateLabel(dueDate),
     dueDate,
     amount: withdrawal.amount,
     account: withdrawal.account,
@@ -290,66 +338,6 @@ export function toSnapshotCategory(category: DraftAssetCategory): AssetCategoryS
   };
 }
 
-export function ensureRentReserveAccount(categories: DraftAssetCategory[]) {
-  const cashSavings = categories.find((category) => category.key === 'cash-savings');
-  if (!cashSavings) {
-    return [
-      ...categories,
-      {
-        accounts: [
-          {
-            id: -100001,
-            account: RENT_RESERVE_ACCOUNT_NAME,
-            company: 'Credit Union',
-            amount: 0,
-          },
-        ],
-        key: 'cash-savings',
-        label: 'Cash & Savings',
-        total: 0,
-      },
-    ];
-  }
-
-  if (cashSavings.accounts.some(isRentReserveAccount)) {
-    return categories;
-  }
-
-  const legacyReserve = cashSavings.accounts.find((account) =>
-    account.account.toLowerCase().includes('rent')
-  );
-
-  return categories.map((category) => {
-    if (category.key !== 'cash-savings') {
-      return category;
-    }
-
-    if (legacyReserve) {
-      return recalculateAssetCategory({
-        ...category,
-        accounts: category.accounts.map((account) =>
-          account.id === legacyReserve.id
-            ? { ...account, account: RENT_RESERVE_ACCOUNT_NAME }
-            : account
-        ),
-      });
-    }
-
-    return recalculateAssetCategory({
-      ...category,
-      accounts: [
-        {
-          id: -100001,
-          account: RENT_RESERVE_ACCOUNT_NAME,
-          company: 'Credit Union',
-          amount: 0,
-        },
-        ...category.accounts,
-      ],
-    });
-  });
-}
-
 export function toDebtForm(account: DraftDebtAccount): AssetFormState {
   return {
     account: account.account,
@@ -407,32 +395,17 @@ export function toSnapshotIncomeSummaryItem(
   };
 }
 
-export function ensurePrimaryPaycheck(items: DraftIncomeSummaryItem[]) {
-  if (
-    items.some(
-      (item) =>
-        item.category === PRIMARY_PAYCHECK_CATEGORY && item.interval === PRIMARY_PAYCHECK_INTERVAL
-    )
-  ) {
-    return items;
-  }
-
-  return [
-    ...items,
-    {
-      id: -100002,
-      category: PRIMARY_PAYCHECK_CATEGORY,
-      interval: PRIMARY_PAYCHECK_INTERVAL,
-      amount: 0,
-    },
-  ];
+export function toSnapshotIncomeSummaryItems(
+  items: DraftIncomeSummaryItem[]
+): IncomeSummaryItemSnapshotRequest[] {
+  return items.map(toSnapshotIncomeSummaryItem);
 }
 
 export function buildDerivedIncomeSummaryItems(
   items: DraftIncomeSummaryItem[],
   totalMonthlyWithdrawals: number
 ) {
-  const primaryPaycheck = ensurePrimaryPaycheck(items).find(
+  const primaryPaycheck = items.find(
     (item) =>
       item.category === PRIMARY_PAYCHECK_CATEGORY && item.interval === PRIMARY_PAYCHECK_INTERVAL
   );
@@ -529,9 +502,7 @@ export function withIncomeMonthlyCounts(events: DraftIncomeEvent[]): DraftIncome
 }
 
 export function getTodayIso() {
-  const today = new Date();
-  const offset = today.getTimezoneOffset() * 60_000;
-  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
+  return todayIso();
 }
 
 export function getCurrentPaycheck(events: DraftIncomeEvent[], todayIso: string) {
@@ -644,55 +615,4 @@ function ordinal(day: number) {
     default:
       return `${day}th`;
   }
-}
-
-function dueDateForPeriod(dueDay: number, payPeriodStart: string, payPeriodEnd: string) {
-  const startDate = new Date(`${payPeriodStart}T00:00:00`);
-  const endDate = new Date(`${payPeriodEnd}T00:00:00`);
-  let dueDate = safeDate(startDate.getFullYear(), startDate.getMonth(), dueDay);
-  if (dueDate < startDate && startDate.getMonth() !== endDate.getMonth())
-    dueDate = safeDate(endDate.getFullYear(), endDate.getMonth(), dueDay);
-  return dueDate.toISOString().slice(0, 10);
-}
-
-function annualDueDateForPeriod(
-  dayMonth: number,
-  day: number,
-  payPeriodStart: string,
-  payPeriodEnd: string
-) {
-  const startDate = new Date(`${payPeriodStart}T00:00:00`);
-  const endDate = new Date(`${payPeriodEnd}T00:00:00`);
-  let dueDate = safeDate(startDate.getFullYear(), dayMonth - 1, day);
-  if (dueDate < startDate && startDate.getFullYear() !== endDate.getFullYear())
-    dueDate = safeDate(endDate.getFullYear(), dayMonth - 1, day);
-  return dueDate.toISOString().slice(0, 10);
-}
-
-function safeDate(year: number, monthIndex: number, day: number) {
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  return new Date(year, monthIndex, Math.min(day, daysInMonth));
-}
-
-function dateLabel(value: string) {
-  return new Date(`${value}T00:00:00`).toLocaleDateString('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric',
-  });
-}
-
-function parseAnnualDate(value: string) {
-  if (value.includes('-')) {
-    const [, month = 1, day = 1] = value.split('-').map(Number);
-    return { month, day };
-  }
-
-  const [month = 1, day = 1] = value.split('/').map(Number);
-  return { month, day };
-}
-
-function annualInputDate(month: number, day: number) {
-  const year = new Date().getFullYear();
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }

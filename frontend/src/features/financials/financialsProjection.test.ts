@@ -1,22 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildDerivedIncomeSummaryItems,
-  ensurePrimaryPaycheck,
-  ensureRentReserveAccount,
-  ensureRentWithdrawal,
-} from './financialsDraft';
-import {
-  buildProjectionPeriod,
-  buildProjectionSummary,
+  annualDueDateForPeriod,
+  monthlyDueDateForPeriod,
   nextPayPeriod,
-} from './financialsProjection';
-import type {
-  DraftAnnualWithdrawal,
-  DraftAssetCategory,
-  DraftBill,
-  DraftIncomeSummaryItem,
-} from './financialsTypes';
+} from './financialsDatePolicy';
+import {
+  buildDerivedIncomeSummaryItems,
+  buildExpenseSnapshotRequest,
+  createFinancialsDraft,
+  toSnapshotIncomeSummaryItems,
+} from './financialsDraft';
+import { buildProjectionPeriod, buildProjectionSummary } from './financialsProjection';
+import type { DraftAnnualWithdrawal, DraftAssetCategory, DraftBill } from './financialsTypes';
 
 function bill(overrides: Partial<DraftBill>): DraftBill {
   return {
@@ -176,37 +172,16 @@ describe('financialsProjection', () => {
     });
   });
 
-  it('normalizes hidden projection anchors without exposing row metadata', () => {
-    const bills = ensureRentWithdrawal(
-      [bill({ bill: 'Apartment Rent Holding', id: 7 })],
-      '2026-06-12',
-      '2026-06-26'
-    );
-    const categories = ensureRentReserveAccount([
-      {
-        accounts: [
-          {
-            account: 'Member Savings (Rent)',
-            amount: 1300,
-            company: 'Credit Union',
-            id: 8,
-          },
-        ],
-        key: 'cash-savings',
-        label: 'Cash & Savings',
-        total: 1300,
-      },
-    ]);
-    const incomeItems: DraftIncomeSummaryItem[] = ensurePrimaryPaycheck([]);
+  it('chooses end month for due dates when a pay period crosses months', () => {
+    expect(monthlyDueDateForPeriod(1, '2026-06-26', '2026-07-09')).toBe('2026-07-01');
+  });
 
-    expect(bills[0]?.bill).toBe('Rent');
-    expect(categories[0]?.accounts[0]?.account).toBe('Rent Reserve');
-    expect(incomeItems).toContainEqual({
-      amount: 0,
-      category: 'Net Income',
-      id: -100002,
-      interval: 'Bi-Weekly',
-    });
+  it('clamps monthly due dates to the last day of month', () => {
+    expect(monthlyDueDateForPeriod(31, '2026-02-01', '2026-02-15')).toBe('2026-02-28');
+  });
+
+  it('chooses end year for annual due dates when a pay period crosses years', () => {
+    expect(annualDueDateForPeriod(1, 1, '2026-12-30', '2027-01-12')).toBe('2027-01-01');
   });
 
   it('derives income summary rows from bi-weekly net income and monthly withdrawals', () => {
@@ -248,5 +223,164 @@ describe('financialsProjection', () => {
       items.find((item) => item.category === 'Disposable Income' && item.interval === 'Weekly')
         ?.amount
     ).toBeCloseTo(475.4);
+  });
+
+  it('preserves source income summary rows when building a save payload', () => {
+    const items = toSnapshotIncomeSummaryItems([
+      {
+        amount: 3396.25,
+        category: 'Net Income',
+        id: 7,
+        interval: 'Bi-Weekly',
+      },
+      {
+        amount: 125,
+        category: 'Side Income',
+        id: 8,
+        interval: 'Month',
+      },
+    ]);
+
+    expect(items).toContainEqual({
+      amount: 3396.25,
+      category: 'Net Income',
+      id: 7,
+      interval: 'Bi-Weekly',
+    });
+    expect(items).toContainEqual({
+      amount: 125,
+      category: 'Side Income',
+      id: 8,
+      interval: 'Month',
+    });
+  });
+
+  it('builds a snapshot save payload from draft state', () => {
+    const payload = buildExpenseSnapshotRequest({
+      annualWithdrawals: [],
+      assetCategories: [],
+      bills: [bill({ amount: 25, bill: 'Internet', id: -1 })],
+      debtAccounts: [],
+      incomeEvents: [],
+      incomeSummaryItems: [
+        {
+          amount: 125,
+          category: 'Side Income',
+          id: 8,
+          interval: 'Month',
+        },
+      ],
+      importantDates: [],
+      payPeriodEnd: '2026-06-26',
+      payPeriodStart: '2026-06-12',
+    });
+
+    expect(payload).toMatchObject({
+      payPeriodEnd: '2026-06-26',
+      payPeriodStart: '2026-06-12',
+      bills: [{ amount: 25, bill: 'Internet', id: null }],
+      incomeSummaryItems: expect.arrayContaining([
+        {
+          amount: 125,
+          category: 'Side Income',
+          id: 8,
+          interval: 'Month',
+        },
+      ]),
+    });
+  });
+
+  it('creates draft state from a loaded snapshot', () => {
+    const draft = createFinancialsDraft({
+      annualPayPeriodTotal: 0,
+      annualWithdrawals: [],
+      assetCategories: [
+        {
+          key: 'cash-savings',
+          label: 'Cash & Savings',
+          total: 1300,
+          accounts: [
+            {
+              account: 'Rent Reserve',
+              amount: 1300,
+              company: 'Credit Union',
+              id: -100001,
+            },
+          ],
+        },
+      ],
+      bills: [
+        {
+          account: 'Check',
+          amount: 0,
+          bill: 'Rent',
+          dueDate: '2026-06-12',
+          dueDay: 1,
+          dueLabel: '1st',
+          id: -100000,
+          inPayPeriod: false,
+          paid: false,
+        },
+      ],
+      debtAccounts: [],
+      importantDates: [],
+      incomeEvents: [
+        {
+          checkNumber: 1,
+          checksInMonth: 0,
+          date: '2026-06-12',
+          id: 1,
+          label: 'Paycheck',
+          type: 'Paycheck',
+        },
+        {
+          checkNumber: 2,
+          checksInMonth: 0,
+          date: '2026-06-26',
+          id: 2,
+          label: 'Paycheck',
+          type: 'Paycheck',
+        },
+      ],
+      incomeSummaryItems: [
+        {
+          amount: 0,
+          category: 'Net Income',
+          id: -100002,
+          interval: 'Bi-Weekly',
+        },
+      ],
+      netWorth: 0,
+      paidTotal: 0,
+      payPeriodEnd: '2026-06-26',
+      payPeriodStart: '2026-06-12',
+      payPeriodTotal: 0,
+      totalAnnualWithdrawals: 0,
+      totalDebt: 0,
+      totalMonthlyExpenses: 0,
+      totalTrackedAssets: 0,
+      unpaidTotal: 0,
+    });
+
+    expect(draft.payPeriodStart).toBe('2026-06-12');
+    expect(draft.draftBills).toContainEqual(expect.objectContaining({ bill: 'Rent', id: -100000 }));
+    expect(draft.draftAssetCategories[0]?.accounts).toContainEqual(
+      expect.objectContaining({ account: 'Rent Reserve', id: -100001 })
+    );
+    expect(draft.draftIncomeSummaryItems).toContainEqual({
+      amount: 0,
+      category: 'Net Income',
+      id: -100002,
+      interval: 'Bi-Weekly',
+    });
+    expect(draft.incomeSummaryForm).toMatchObject({
+      amount: '0',
+      category: 'Net Income',
+      interval: 'Bi-Weekly',
+    });
+    expect(draft.draftIncomeEvents).toEqual([
+      expect.objectContaining({ checksInMonth: 2, id: 1 }),
+      expect.objectContaining({ checksInMonth: 2, id: 2 }),
+    ]);
   });
 });

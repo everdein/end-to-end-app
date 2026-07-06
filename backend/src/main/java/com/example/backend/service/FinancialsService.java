@@ -33,7 +33,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +47,10 @@ public class FinancialsService {
 
   private static final DateTimeFormatter DISPLAY_DATE_FORMATTER =
       DateTimeFormatter.ofPattern("MM/dd/yyyy");
+  private static final String RENT_WITHDRAWAL_NAME = "Rent";
+  private static final String RENT_RESERVE_ACCOUNT_NAME = "Rent Reserve";
+  private static final String PRIMARY_PAYCHECK_CATEGORY = "Net Income";
+  private static final String PRIMARY_PAYCHECK_INTERVAL = "Bi-Weekly";
 
   private final FinancialsRepository financialsRepository;
   private final Clock clock;
@@ -62,13 +66,13 @@ public class FinancialsService {
   }
 
   public ExpenseSnapshotResponse getSnapshot() {
-    LocalDate[] payPeriod = currentPayPeriod();
-    LocalDate startDate = payPeriod[0];
-    LocalDate endDate = payPeriod[1];
+    PayPeriodDatePolicy.PayPeriod payPeriod = currentPayPeriod();
+    LocalDate startDate = payPeriod.startDate();
+    LocalDate endDate = payPeriod.endDate();
 
     List<ExpenseBillResponse> bills =
-        financialsRepository.findAllBills().stream()
-            .map((bill) -> toResponse(bill, startDate, endDate))
+        normalizeBills(financialsRepository.findAllBills()).stream()
+            .map((bill) -> toResponse(bill, payPeriod))
             .toList();
 
     BigDecimal totalMonthlyExpenses = sum(bills.stream().map(ExpenseBillResponse::amount).toList());
@@ -85,7 +89,7 @@ public class FinancialsService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
     List<AnnualWithdrawalResponse> annualWithdrawals =
         financialsRepository.findAllAnnualWithdrawals().stream()
-            .map((withdrawal) -> toResponse(withdrawal, startDate, endDate))
+            .map((withdrawal) -> toResponse(withdrawal, payPeriod))
             .toList();
     BigDecimal totalAnnualWithdrawals =
         sum(annualWithdrawals.stream().map(AnnualWithdrawalResponse::amount).toList());
@@ -127,8 +131,7 @@ public class FinancialsService {
 
   public ExpenseBillResponse addBill(ExpenseBillRequest request) {
     ExpenseBill created = financialsRepository.addBill(toBill(request, 0));
-    LocalDate[] payPeriod = currentPayPeriod();
-    return toResponse(created, payPeriod[0], payPeriod[1]);
+    return toResponse(created, currentPayPeriod());
   }
 
   public ExpenseBillResponse updateBill(long id, ExpenseBillRequest request) {
@@ -137,8 +140,7 @@ public class FinancialsService {
         financialsRepository
             .updateBill(id, bill)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill not found"));
-    LocalDate[] payPeriod = currentPayPeriod();
-    return toResponse(updated, payPeriod[0], payPeriod[1]);
+    return toResponse(updated, currentPayPeriod());
   }
 
   public void deleteBill(long id) {
@@ -155,17 +157,21 @@ public class FinancialsService {
 
   public ExpenseSnapshotResponse saveSnapshot(ExpenseSnapshotRequest request) {
     validatePayPeriod(request.payPeriodStart(), request.payPeriodEnd());
-    List<ExpenseBill> bills = request.bills().stream().map(this::toBill).toList();
+    List<ExpenseBill> bills = normalizeBills(request.bills().stream().map(this::toBill).toList());
     List<AnnualWithdrawal> annualWithdrawals =
         nullSafe(request.annualWithdrawals()).stream().map(this::toAnnualWithdrawal).toList();
     List<AssetAccount> assetAccounts =
-        request.assetCategories().stream()
-            .flatMap((category) -> toAssetAccounts(category).stream())
-            .toList();
+        normalizeAssetAccounts(
+            request.assetCategories().stream()
+                .flatMap((category) -> toAssetAccounts(category).stream())
+                .toList());
     List<DebtAccount> debtAccounts =
         nullSafe(request.debtAccounts()).stream().map(this::toDebtAccount).toList();
     List<IncomeSummaryItem> incomeSummaryItems =
-        nullSafe(request.incomeSummaryItems()).stream().map(this::toIncomeSummaryItem).toList();
+        normalizeIncomeSummaryItems(
+            nullSafe(request.incomeSummaryItems()).stream()
+                .map(this::toIncomeSummaryItem)
+                .toList());
     List<IncomeEvent> incomeEvents =
         request.incomeEvents().stream().map(this::toIncomeEvent).toList();
     List<ImportantDate> importantDates =
@@ -219,7 +225,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due day must be between 1 and 31");
     }
 
-    if (isNegative(amount)) {
+    if (amount == null || isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Amount must be positive");
     }
   }
@@ -258,7 +264,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Day is not valid for month");
     }
 
-    if (isNegative(amount)) {
+    if (amount == null || isNegative(amount)) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Annual withdrawal amount must be positive");
     }
@@ -307,7 +313,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Asset company is required");
     }
 
-    if (isNegative(amount)) {
+    if (amount == null || isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Asset amount must be positive");
     }
   }
@@ -328,7 +334,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debt company is required");
     }
 
-    if (isNegative(amount)) {
+    if (amount == null || isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debt amount must be positive");
     }
   }
@@ -349,7 +355,7 @@ public class FinancialsService {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Income interval is required");
     }
 
-    if (isNegative(amount)) {
+    if (amount == null || isNegative(amount)) {
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Income amount must be positive");
     }
   }
@@ -400,9 +406,129 @@ public class FinancialsService {
     }
   }
 
-  private ExpenseBillResponse toResponse(ExpenseBill bill, LocalDate startDate, LocalDate endDate) {
-    LocalDate dueDate = dueDateForPayPeriodMonth(bill.dueDay(), startDate, endDate);
-    boolean inPayPeriod = !dueDate.isBefore(startDate) && !dueDate.isAfter(endDate);
+  private List<ExpenseBill> normalizeBills(List<ExpenseBill> bills) {
+    if (bills.stream().anyMatch(this::isRentWithdrawal)) {
+      return bills;
+    }
+
+    ExpenseBill legacyRent =
+        bills.stream()
+            .filter((bill) -> bill.bill().toLowerCase().contains("rent"))
+            .findFirst()
+            .orElse(null);
+    if (legacyRent != null) {
+      return bills.stream()
+          .map(
+              (bill) ->
+                  bill.id() == legacyRent.id()
+                      ? new ExpenseBill(
+                          bill.id(),
+                          RENT_WITHDRAWAL_NAME,
+                          bill.dueDay(),
+                          bill.amount(),
+                          bill.account(),
+                          bill.paid())
+                      : bill)
+          .toList();
+    }
+
+    List<ExpenseBill> normalized = new ArrayList<>();
+    normalized.add(
+        new ExpenseBill(-100000, RENT_WITHDRAWAL_NAME, 1, BigDecimal.ZERO, "Check", false));
+    normalized.addAll(bills);
+    return normalized;
+  }
+
+  private List<AssetAccount> normalizeAssetAccounts(List<AssetAccount> accounts) {
+    AssetAccount cashSavings =
+        accounts.stream()
+            .filter((account) -> account.categoryKey().equals("cash-savings"))
+            .findFirst()
+            .orElse(null);
+
+    if (cashSavings == null) {
+      List<AssetAccount> normalized = new ArrayList<>(accounts);
+      normalized.add(
+          new AssetAccount(
+              -100001,
+              "cash-savings",
+              "Cash & Savings",
+              RENT_RESERVE_ACCOUNT_NAME,
+              "Credit Union",
+              BigDecimal.ZERO));
+      return normalized;
+    }
+
+    if (accounts.stream().anyMatch(this::isRentReserveAccount)) {
+      return accounts;
+    }
+
+    AssetAccount legacyReserve =
+        accounts.stream()
+            .filter(
+                (account) ->
+                    account.categoryKey().equals("cash-savings")
+                        && account.account().toLowerCase().contains("rent"))
+            .findFirst()
+            .orElse(null);
+    if (legacyReserve != null) {
+      return accounts.stream()
+          .map(
+              (account) ->
+                  account.id() == legacyReserve.id()
+                      ? new AssetAccount(
+                          account.id(),
+                          account.categoryKey(),
+                          account.categoryLabel(),
+                          RENT_RESERVE_ACCOUNT_NAME,
+                          account.company(),
+                          account.amount())
+                      : account)
+          .toList();
+    }
+
+    List<AssetAccount> normalized = new ArrayList<>(accounts);
+    normalized.add(
+        new AssetAccount(
+            -100001,
+            cashSavings.categoryKey(),
+            cashSavings.categoryLabel(),
+            RENT_RESERVE_ACCOUNT_NAME,
+            "Credit Union",
+            BigDecimal.ZERO));
+    return normalized;
+  }
+
+  private List<IncomeSummaryItem> normalizeIncomeSummaryItems(List<IncomeSummaryItem> items) {
+    if (items.stream().anyMatch(this::isPrimaryPaycheck)) {
+      return items;
+    }
+
+    List<IncomeSummaryItem> normalized = new ArrayList<>(items);
+    normalized.add(
+        new IncomeSummaryItem(
+            -100002, PRIMARY_PAYCHECK_CATEGORY, PRIMARY_PAYCHECK_INTERVAL, BigDecimal.ZERO));
+    return normalized;
+  }
+
+  private boolean isRentWithdrawal(ExpenseBill bill) {
+    return bill.bill().trim().equalsIgnoreCase(RENT_WITHDRAWAL_NAME);
+  }
+
+  private boolean isRentReserveAccount(AssetAccount account) {
+    return account.account().trim().equalsIgnoreCase(RENT_RESERVE_ACCOUNT_NAME);
+  }
+
+  private boolean isPrimaryPaycheck(IncomeSummaryItem item) {
+    return item.category().trim().equalsIgnoreCase(PRIMARY_PAYCHECK_CATEGORY)
+        && item.interval().trim().equalsIgnoreCase(PRIMARY_PAYCHECK_INTERVAL);
+  }
+
+  private ExpenseBillResponse toResponse(
+      ExpenseBill bill, PayPeriodDatePolicy.PayPeriod payPeriod) {
+    LocalDate dueDate = PayPeriodDatePolicy.monthlyDueDate(bill.dueDay(), payPeriod);
+    boolean inPayPeriod =
+        !dueDate.isBefore(payPeriod.startDate()) && !dueDate.isAfter(payPeriod.endDate());
 
     return new ExpenseBillResponse(
         bill.id(),
@@ -417,9 +543,11 @@ public class FinancialsService {
   }
 
   private AnnualWithdrawalResponse toResponse(
-      AnnualWithdrawal withdrawal, LocalDate startDate, LocalDate endDate) {
-    LocalDate dueDate = annualDueDate(withdrawal.month(), withdrawal.day(), startDate, endDate);
-    boolean inPayPeriod = !dueDate.isBefore(startDate) && !dueDate.isAfter(endDate);
+      AnnualWithdrawal withdrawal, PayPeriodDatePolicy.PayPeriod payPeriod) {
+    LocalDate dueDate =
+        PayPeriodDatePolicy.annualDueDate(withdrawal.month(), withdrawal.day(), payPeriod);
+    boolean inPayPeriod =
+        !dueDate.isBefore(payPeriod.startDate()) && !dueDate.isAfter(payPeriod.endDate());
 
     return new AnnualWithdrawalResponse(
         withdrawal.id(),
@@ -438,8 +566,7 @@ public class FinancialsService {
     Map<String, List<AssetAccountResponse>> accountsByCategory = new LinkedHashMap<>();
     Map<String, String> labelsByCategory = new LinkedHashMap<>();
 
-    financialsRepository
-        .findAllAssetAccounts()
+    normalizeAssetAccounts(financialsRepository.findAllAssetAccounts())
         .forEach(
             (account) -> {
               labelsByCategory.putIfAbsent(account.categoryKey(), account.categoryLabel());
@@ -489,7 +616,7 @@ public class FinancialsService {
   }
 
   private List<IncomeSummaryItemResponse> incomeSummaryItems() {
-    return financialsRepository.findAllIncomeSummaryItems().stream()
+    return normalizeIncomeSummaryItems(financialsRepository.findAllIncomeSummaryItems()).stream()
         .map(
             (item) ->
                 new IncomeSummaryItemResponse(
@@ -517,49 +644,9 @@ public class FinancialsService {
         .toList();
   }
 
-  private LocalDate[] currentPayPeriod() {
-    LocalDate startDate = financialsRepository.payPeriodStart();
-    LocalDate endDate = financialsRepository.payPeriodEnd();
-    LocalDate today = LocalDate.now(clock);
-    long periodDays = ChronoUnit.DAYS.between(startDate, endDate) + 1;
-
-    while (today.isAfter(endDate)) {
-      startDate = startDate.plusDays(periodDays);
-      endDate = endDate.plusDays(periodDays);
-    }
-
-    while (today.isBefore(startDate)) {
-      startDate = startDate.minusDays(periodDays);
-      endDate = endDate.minusDays(periodDays);
-    }
-
-    return new LocalDate[] {startDate, endDate};
-  }
-
-  private LocalDate dueDateForPayPeriodMonth(int dueDay, LocalDate startDate, LocalDate endDate) {
-    LocalDate dueDate = safeDate(startDate.getYear(), startDate.getMonthValue(), dueDay);
-
-    if (dueDate.isBefore(startDate) && startDate.getMonthValue() != endDate.getMonthValue()) {
-      return safeDate(endDate.getYear(), endDate.getMonthValue(), dueDay);
-    }
-
-    return dueDate;
-  }
-
-  private LocalDate safeDate(int year, int month, int day) {
-    LocalDate firstOfMonth = LocalDate.of(year, month, 1);
-    int safeDay = Math.min(day, firstOfMonth.lengthOfMonth());
-    return LocalDate.of(year, month, safeDay);
-  }
-
-  private LocalDate annualDueDate(int month, int day, LocalDate startDate, LocalDate endDate) {
-    LocalDate dueDate = safeDate(startDate.getYear(), month, day);
-
-    if (dueDate.isBefore(startDate) && startDate.getYear() != endDate.getYear()) {
-      return safeDate(endDate.getYear(), month, day);
-    }
-
-    return dueDate;
+  private PayPeriodDatePolicy.PayPeriod currentPayPeriod() {
+    return PayPeriodDatePolicy.currentPayPeriod(
+        financialsRepository.payPeriodStart(), financialsRepository.payPeriodEnd(), clock);
   }
 
   private String dateLabel(LocalDate date) {

@@ -1,6 +1,6 @@
 import './FinancialsPage.css';
 
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { AnnualWithdrawalsTab } from './AnnualWithdrawalsTab';
@@ -10,15 +10,14 @@ import { DebtTab } from './DebtTab';
 import { isPrimaryPaycheck, isRentReserveAccount, isRentWithdrawal } from './financialsAnchors';
 import {
   buildDerivedIncomeSummaryItems,
+  buildExpenseSnapshotRequest,
+  createFinancialsDraft,
   emptyAnnualWithdrawalForm,
   emptyAssetForm,
   emptyForm,
   emptyImportantDateForm,
   emptyIncomeEventForm,
   emptyIncomeSummaryForm,
-  ensurePrimaryPaycheck,
-  ensureRentReserveAccount,
-  ensureRentWithdrawal,
   formToAnnualWithdrawal,
   formToAssetAccount,
   formToDebtAccount,
@@ -35,22 +34,12 @@ import {
   toAssetForm,
   toDebtForm,
   toDraftAnnualWithdrawal,
-  toDraftAssetCategory,
   toDraftBill,
   toForm,
   toImportantDateForm,
   toIncomeEventForm,
-  toIncomeSummaryForm,
-  toSnapshotAnnualWithdrawal,
-  toSnapshotBill,
-  toSnapshotCategory,
-  toSnapshotDebtAccount,
-  toSnapshotImportantDate,
-  toSnapshotIncomeEvent,
-  toSnapshotIncomeSummaryItem,
   withImportantDateStatuses,
   withIncomeEventStatuses,
-  withIncomeMonthlyCounts,
 } from './financialsDraft';
 import { buildProjectionSummary } from './financialsProjection';
 import { fetchMonthlyExpenses, saveExpenseSnapshot } from './financialsSlice';
@@ -124,6 +113,21 @@ export default function FinancialsPage() {
   const [nextDraftImportantDateId, setNextDraftImportantDateId] = useState(-1);
   const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval | null>(null);
   const todayIso = useMemo(getTodayIso, []);
+  const loadSnapshotDraft = useCallback((currentSnapshot: NonNullable<typeof snapshot>) => {
+    const draft = createFinancialsDraft(currentSnapshot);
+
+    setPayPeriodStart(draft.payPeriodStart);
+    setPayPeriodEnd(draft.payPeriodEnd);
+    setDraftBills(draft.draftBills);
+    setDraftAnnualWithdrawals(draft.draftAnnualWithdrawals);
+    setAnnualWithdrawalForm(draft.annualWithdrawalForm);
+    setDraftAssetCategories(draft.draftAssetCategories);
+    setDraftDebtAccounts(draft.draftDebtAccounts);
+    setDraftIncomeSummaryItems(draft.draftIncomeSummaryItems);
+    setIncomeSummaryForm(draft.incomeSummaryForm);
+    setDraftIncomeEvents(draft.draftIncomeEvents);
+    setDraftImportantDates(draft.draftImportantDates);
+  }, []);
 
   useEffect(() => {
     dispatch(fetchMonthlyExpenses());
@@ -131,57 +135,22 @@ export default function FinancialsPage() {
 
   useEffect(() => {
     if (snapshot) {
-      const loadedIncomeSummaryItems = ensurePrimaryPaycheck(
-        (snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item }))
-      );
-      const primaryPaycheck = loadedIncomeSummaryItems.find(isPrimaryPaycheck);
-
-      setPayPeriodStart(snapshot.payPeriodStart);
-      setPayPeriodEnd(snapshot.payPeriodEnd);
-      setDraftBills(
-        ensureRentWithdrawal(
-          snapshot.bills.map((bill) =>
-            toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
-          ),
-          snapshot.payPeriodStart,
-          snapshot.payPeriodEnd
-        )
-      );
-      setDraftAnnualWithdrawals(
-        (snapshot.annualWithdrawals ?? []).map((withdrawal) =>
-          toDraftAnnualWithdrawal(withdrawal, snapshot.payPeriodStart, snapshot.payPeriodEnd)
-        )
-      );
+      loadSnapshotDraft(snapshot);
       setEditingAnnualWithdrawalId(null);
-      setAnnualWithdrawalForm(emptyAnnualWithdrawalForm);
       setIsDirty(false);
       setEditingId(null);
       setForm(emptyForm);
-      setDraftAssetCategories(
-        ensureRentReserveAccount(snapshot.assetCategories.map(toDraftAssetCategory))
-      );
       setEditingAsset(null);
       setAssetForm(emptyAssetForm);
-      setDraftDebtAccounts((snapshot.debtAccounts ?? []).map((account) => ({ ...account })));
       setEditingDebtId(null);
       setDebtForm(emptyAssetForm);
-      setDraftIncomeSummaryItems(loadedIncomeSummaryItems);
-      setIncomeSummaryForm(
-        primaryPaycheck ? toIncomeSummaryForm(primaryPaycheck) : emptyIncomeSummaryForm
-      );
-      setDraftIncomeEvents(
-        withIncomeMonthlyCounts((snapshot.incomeEvents ?? []).map((event) => ({ ...event })))
-      );
       setEditingIncomeEventId(null);
       setIncomeEventForm(emptyIncomeEventForm);
-      setDraftImportantDates(
-        (snapshot.importantDates ?? []).map((importantDate) => ({ ...importantDate }))
-      );
       setEditingImportantDateId(null);
       setImportantDateForm(emptyImportantDateForm);
       setPendingRemoval(null);
     }
-  }, [snapshot]);
+  }, [loadSnapshotDraft, snapshot]);
 
   useEffect(() => {
     if (payPeriodStart && payPeriodEnd) {
@@ -367,19 +336,19 @@ export default function FinancialsPage() {
 
   async function saveDraft() {
     await dispatch(
-      saveExpenseSnapshot({
-        payPeriodStart,
-        payPeriodEnd,
-        bills: sortedBills.map(toSnapshotBill),
-        annualWithdrawals: annualWithdrawals.map(toSnapshotAnnualWithdrawal),
-        assetCategories: assetCategories.map(toSnapshotCategory),
-        debtAccounts: debtAccounts.map(toSnapshotDebtAccount),
-        incomeSummaryItems: ensurePrimaryPaycheck(draftIncomeSummaryItems)
-          .filter(isPrimaryPaycheck)
-          .map(toSnapshotIncomeSummaryItem),
-        incomeEvents: incomeEvents.map(toSnapshotIncomeEvent),
-        importantDates: importantDates.map(toSnapshotImportantDate),
-      })
+      saveExpenseSnapshot(
+        buildExpenseSnapshotRequest({
+          annualWithdrawals,
+          assetCategories,
+          bills: sortedBills,
+          debtAccounts,
+          incomeEvents,
+          incomeSummaryItems: draftIncomeSummaryItems,
+          importantDates,
+          payPeriodEnd,
+          payPeriodStart,
+        })
+      )
     );
   }
 
@@ -470,45 +439,11 @@ export default function FinancialsPage() {
       return;
     }
 
-    const loadedIncomeSummaryItems = ensurePrimaryPaycheck(
-      (snapshot.incomeSummaryItems ?? []).map((item) => ({ ...item }))
-    );
-    const primaryPaycheck = loadedIncomeSummaryItems.find(isPrimaryPaycheck);
-
-    setPayPeriodStart(snapshot.payPeriodStart);
-    setPayPeriodEnd(snapshot.payPeriodEnd);
-    setDraftBills(
-      ensureRentWithdrawal(
-        snapshot.bills.map((bill) =>
-          toDraftBill(bill, snapshot.payPeriodStart, snapshot.payPeriodEnd)
-        ),
-        snapshot.payPeriodStart,
-        snapshot.payPeriodEnd
-      )
-    );
-    setDraftAnnualWithdrawals(
-      (snapshot.annualWithdrawals ?? []).map((withdrawal) =>
-        toDraftAnnualWithdrawal(withdrawal, snapshot.payPeriodStart, snapshot.payPeriodEnd)
-      )
-    );
-    setDraftAssetCategories(
-      ensureRentReserveAccount(snapshot.assetCategories.map(toDraftAssetCategory))
-    );
-    setDraftDebtAccounts((snapshot.debtAccounts ?? []).map((account) => ({ ...account })));
-    setDraftIncomeSummaryItems(loadedIncomeSummaryItems);
-    setDraftIncomeEvents(
-      withIncomeMonthlyCounts((snapshot.incomeEvents ?? []).map((event) => ({ ...event })))
-    );
-    setDraftImportantDates(
-      (snapshot.importantDates ?? []).map((importantDate) => ({ ...importantDate }))
-    );
+    loadSnapshotDraft(snapshot);
     cancelEdit();
     cancelAnnualWithdrawalEdit();
     cancelAssetEdit();
     cancelDebtEdit();
-    setIncomeSummaryForm(
-      primaryPaycheck ? toIncomeSummaryForm(primaryPaycheck) : emptyIncomeSummaryForm
-    );
     cancelIncomeEventEdit();
     cancelImportantDateEdit();
     setPendingRemoval(null);
@@ -665,12 +600,15 @@ export default function FinancialsPage() {
     };
 
     setDraftIncomeSummaryItems((current) => {
-      const items = ensurePrimaryPaycheck(current);
-      const primaryPaycheck = items.find(isPrimaryPaycheck);
+      const primaryPaycheck = current.find(isPrimaryPaycheck);
       const primaryPaycheckId = primaryPaycheck?.id ?? -100002;
       const updatedPrimaryPaycheck = formToIncomeSummaryItem(primaryPaycheckId, sourceForm);
 
-      return items.map((item) => (isPrimaryPaycheck(item) ? updatedPrimaryPaycheck : item));
+      if (!primaryPaycheck) {
+        return [...current, updatedPrimaryPaycheck];
+      }
+
+      return current.map((item) => (isPrimaryPaycheck(item) ? updatedPrimaryPaycheck : item));
     });
 
     setIncomeSummaryForm(sourceForm);

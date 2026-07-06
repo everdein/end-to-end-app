@@ -1,7 +1,5 @@
 package com.example.backend.api;
 
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -19,8 +17,7 @@ class FinancialsControllerTests {
 
   @Test
   void rejectsInvalidBillRequestWithProblemDetails() throws Exception {
-    FinancialsService financialsService = mock(FinancialsService.class);
-    MockMvc mockMvc = mockMvc(financialsService);
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
 
     mockMvc
         .perform(
@@ -42,12 +39,30 @@ class FinancialsControllerTests {
   }
 
   @Test
+  void rejectsBillRequestWithoutAmount() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(
+            post("/api/v1/financials/bills")
+                .contentType("application/json")
+                .content(
+                    """
+                        {
+                          "bill": "Internet",
+                          "dueDay": 15,
+                          "account": "Check",
+                          "paid": false
+                        }
+                        """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.errors").isArray());
+  }
+
+  @Test
   void mapsResponseStatusExceptionsToProblemDetails() throws Exception {
-    FinancialsService financialsService = mock(FinancialsService.class);
-    doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill not found"))
-        .when(financialsService)
-        .deleteBill(99);
-    MockMvc mockMvc = mockMvc(financialsService);
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
 
     mockMvc
         .perform(delete("/api/v1/financials/bills/99"))
@@ -62,5 +77,17 @@ class FinancialsControllerTests {
         .setControllerAdvice(new ApiExceptionHandler())
         .setValidator(validator)
         .build();
+  }
+
+  private static class TestFinancialsService extends FinancialsService {
+
+    TestFinancialsService() {
+      super(null);
+    }
+
+    @Override
+    public void deleteBill(long id) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Bill not found");
+    }
   }
 }
