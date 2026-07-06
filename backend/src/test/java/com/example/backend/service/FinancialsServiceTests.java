@@ -47,10 +47,19 @@ class FinancialsServiceTests {
     assertThat(snapshot.annualWithdrawals()).hasSize(1);
     assertThat(snapshot.debtAccounts()).hasSize(1);
     assertThat(snapshot.assetCategories()).hasSize(2);
-    assertThat(snapshot.incomeSummaryItems()).hasSize(1);
+    assertThat(snapshot.incomeSummaryItems()).hasSize(2);
     assertThat(snapshot.incomeEvents()).hasSize(2);
     assertThat(snapshot.importantDates()).hasSize(1);
-    assertThat(snapshot.bills().getFirst().bill()).isEqualTo("Example Rent");
+    assertThat(snapshot.bills()).anyMatch((bill) -> bill.bill().equals("Rent"));
+    assertThat(snapshot.assetCategories())
+        .anyMatch(
+            (category) ->
+                category.key().equals("cash-savings")
+                    && category.accounts().stream()
+                        .anyMatch((account) -> account.account().equals("Rent Reserve")));
+    assertThat(snapshot.incomeSummaryItems())
+        .anyMatch(
+            (item) -> item.category().equals("Net Income") && item.interval().equals("Bi-Weekly"));
   }
 
   @Test
@@ -156,6 +165,12 @@ class FinancialsServiceTests {
         .anyMatch((account) -> account.account().equals("Apple") && account.id() > 0);
     assertThat(saved.incomeSummaryItems())
         .anyMatch((item) -> item.category().equals("Disposable Income") && item.id() > 0);
+    assertThat(saved.incomeSummaryItems())
+        .anyMatch(
+            (item) ->
+                item.category().equals("Net Income")
+                    && item.interval().equals("Bi-Weekly")
+                    && item.id() > 0);
     assertThat(saved.incomeEvents()).hasSize(2);
     assertThat(saved.incomeEvents().getFirst().checksInMonth()).isEqualTo(2);
     assertThat(saved.importantDates())

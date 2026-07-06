@@ -19,13 +19,14 @@
 
     <properties>
         <java.version>21</java.version>
-        <!-- Compile to Java 21 bytecode so JaCoCo 0.8.11 can reliably instrument
+        <!-- Compile to Java 21 bytecode so JaCoCo can reliably instrument
              and analyze classes while the app stays on a widely supported LTS
              runtime. Revisit this when the project needs newer Java language
              features and coverage tooling supports the selected class version. -->
         <maven.compiler.release>21</maven.compiler.release>
         <sortpom.version>4.0.0</sortpom.version>
         <spotless.version>3.7.0</spotless.version>
+        <jacoco.version>0.8.15</jacoco.version>
     </properties>
 
     <dependencies>
@@ -70,6 +71,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.mockito</groupId>
+                    <artifactId>mockito-core</artifactId>
+                </exclusion>
+            </exclusions>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -133,7 +140,7 @@
                      Reports available at: target/site/jacoco/index.html -->
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.11</version>
+                <version>${jacoco.version}</version>
                 <executions>
                     <execution>
                         <goals>
