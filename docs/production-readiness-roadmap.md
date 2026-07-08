@@ -30,6 +30,10 @@ by isolated technical concern.
 
 ## Phase A - Make It Real
 
+- [ ] Fix display/edit support for persisted non-primary income summary source
+      rows so future income sources are not hidden by derived rows.
+- [ ] Decide whether the V1 normalized PostgreSQL tables should become active
+      relational persistence or be replaced by a cleaner migration path.
 - [ ] Add granular PostgreSQL CRUD persistence for financial records.
 - [ ] Introduce a clearer backend domain model around financial records.
 - [ ] Add CRUD APIs for financial records beyond the existing bill endpoints.
@@ -51,6 +55,8 @@ by isolated technical concern.
 - [ ] Add audit/history support for financial changes and projections.
 - [ ] Add PR coverage summaries.
 - [ ] Add CodeQL and GitHub dependency review.
+- [ ] Pin or otherwise standardize the Snyk CLI/action used by CI so scan
+      failures are reproducible.
 
 ## Future Scaling
 
@@ -66,8 +72,10 @@ Next highest-value items:
 
 1. Add snapshot versioning or optimistic concurrency so two sessions cannot
    silently overwrite each other.
-2. Add export/backup support for the current financial snapshot.
-3. Add Playwright end-to-end coverage for load, edit, save, refresh, and delete
+2. Fix display/edit handling for persisted non-primary income summary rows.
+3. Decide the PostgreSQL relational schema path before adding more migrations.
+4. Add export/backup support for the current financial snapshot.
+5. Add Playwright end-to-end coverage for load, edit, save, refresh, and delete
    confirmation workflows.
-4. Add recurring payday generation so yearly income calendars do not need to be
+6. Add recurring payday generation so yearly income calendars do not need to be
    manually entered.

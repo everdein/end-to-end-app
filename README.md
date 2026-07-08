@@ -32,7 +32,7 @@ engineering patterns and workflows that can scale over time.
 - Java 21
 - Maven
 - Spring JDBC
-- PostgreSQL foundation with Flyway migrations
+- PostgreSQL foundation with migration SQL
 
 ### Tooling / Quality
 
@@ -52,6 +52,7 @@ engineering patterns and workflows that can scale over time.
 
 ```text
 end-to-end-app/
+|-- .agents/              # Repository-scoped AI workflow skills
 |-- backend/              # Spring Boot API
 |   |-- data/             # Example and local financial snapshot data
 |   `-- README.md         # Backend-specific setup and architecture notes
@@ -60,6 +61,7 @@ end-to-end-app/
 |-- scripts/              # Local development scripts
 |-- .github/workflows/    # CI pipelines
 |-- .husky/               # Git hooks
+|-- AGENTS.md             # Coding-agent architecture and safety guidance
 `-- README.md
 ```
 
@@ -114,17 +116,26 @@ Then close and reopen PowerShell.
 
 ## Install dependencies
 
-Install root workspace tooling from the repository root:
+The repeatable Windows bootstrap checks required tools and installs both root
+and frontend dependencies:
 
 ```powershell
-npm install
+.\scripts\bootstrap-local.ps1
+```
+
+Add `-IncludePostgres` to run the interactive local database setup after
+installing dependencies.
+
+Manual installation remains available:
+
+```powershell
+npm ci
 ```
 
 Install frontend dependencies:
 
 ```powershell
-cd frontend
-npm install
+npm --prefix frontend ci
 ```
 
 ---
@@ -173,6 +184,11 @@ This mode requires:
 
 Important: `financial_app_user` is a database user used by the backend. It is not
 a frontend login user.
+
+Current implementation note: the active PostgreSQL persistence path stores the
+whole financial snapshot in `financial_snapshot_document.snapshot_json`. The
+normalized V1 tables also exist as a relational schema foundation, but they are
+not populated by the current repository implementation.
 
 ---
 
@@ -232,7 +248,8 @@ The script will:
 - create or update `financial_app_user`
 - create the `financial_app` database if it does not exist
 - assign database ownership and privileges
-- run the local schema migrations
+- apply the local migration SQL files when the target tables do not already
+  exist
 - verify the `financial_snapshot_document` table exists
 
 The script is safe to rerun. If the database and tables already exist, it skips
@@ -353,6 +370,10 @@ monthly_withdrawal
 
 A count of `0` in `financial_snapshot_document` is acceptable on a fresh
 database. The backend can seed the first snapshot from local JSON data.
+
+The current JSONB-backed implementation uses `financial_snapshot_document`.
+The other tables are present for the future relational persistence path and may
+remain empty.
 
 ---
 
@@ -547,6 +568,65 @@ cd backend
 .\mvnw.cmd sortpom:verify
 ```
 
+### PostgreSQL profile smoke test
+
+After local PostgreSQL setup, this command verifies that the Spring Boot test
+context can start with the `postgres` profile:
+
+```powershell
+cd backend
+$env:SPRING_PROFILES_ACTIVE="postgres"
+.\mvnw.cmd -B test
+```
+
+---
+
+## Repeatable verification
+
+Run the local equivalent of the non-security CI checks from the repository
+root:
+
+```powershell
+.\scripts\verify.ps1
+```
+
+When a change affects PostgreSQL configuration, serialization, migrations, or
+storage behavior:
+
+```powershell
+.\scripts\verify.ps1 -IncludePostgres
+```
+
+The optional `-IncludeSecurity` flag also runs npm audits and an authenticated
+Snyk scan. It requires the Snyk CLI and `SNYK_TOKEN`; CI remains the canonical
+Snyk environment.
+
+Inspect the local PostgreSQL schema and snapshot metadata without modifying
+data:
+
+```powershell
+.\scripts\inspect-postgres.ps1
+```
+
+The inspection script wraps its queries in an explicit read-only transaction
+and prints aggregate metadata rather than the full financial snapshot.
+
+---
+
+## AI-assisted workflows
+
+`AGENTS.md` gives coding agents repository architecture, commands, data-safety
+rules, and completion criteria. Repository-scoped skills under
+`.agents/skills/` provide focused workflows:
+
+- `$maintain-end-to-end-app` for implementation and verification
+- `$review-end-to-end-app` for findings-first code reviews
+- `$inspect-financial-postgres` for read-only database diagnosis
+- `$triage-github-ci` for GitHub Actions and Snyk failures
+
+These workflows complement deterministic scripts; they do not replace tests,
+review, or authenticated security scans.
+
 ---
 
 ## Troubleshooting
@@ -657,7 +737,10 @@ GitHub Actions currently validates:
 - frontend test coverage
 - frontend builds
 - backend builds
-- dependency/security scans
+- Snyk dependency/security scans
+
+The scan job expects the repository secret `SNYK_TOKEN`. `NVD_API_KEY` is not
+used by the current workflow.
 
 ---
 

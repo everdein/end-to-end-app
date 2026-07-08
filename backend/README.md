@@ -29,7 +29,7 @@ engineering patterns and workflows that can scale over time.
 - Jackson
 - Spring JDBC
 - PostgreSQL
-- Flyway
+- migration SQL under `src/main/resources/db/migration`
 
 ### Tooling
 
@@ -40,7 +40,6 @@ engineering patterns and workflows that can scale over time.
 - GitHub Actions
 - JaCoCo
 - Snyk
-- OWASP Dependency Check
 
 ---
 
@@ -230,7 +229,7 @@ Database user: financial_app_user
 Database password: financial_app_password
 ```
 
-It also runs the schema migrations from:
+It also applies the local migration SQL files from:
 
 ```text
 backend/src/main/resources/db/migration/V1__create_financials_schema.sql
@@ -238,8 +237,8 @@ backend/src/main/resources/db/migration/V2__create_financial_snapshot_document.s
 ```
 
 The script is idempotent and can be safely rerun. If the database already
-exists, it skips database creation. If the schema already exists, it skips the
-migrations and verifies the `financial_snapshot_document` table.
+exists, it skips database creation. If the target tables already exist, it skips
+the SQL file application and verifies the `financial_snapshot_document` table.
 
 After setup completes, start the PostgreSQL-backed backend from the repository
 root:
@@ -419,6 +418,25 @@ monthly_withdrawal
 
 A `financial_snapshot_document` count of `0` is normal on a fresh database.
 
+To inspect the current storage split without exposing snapshot contents, run:
+
+```sql
+SELECT 'annual_withdrawal' AS table_name, count(*) AS row_count FROM annual_withdrawal
+UNION ALL SELECT 'asset_account', count(*) FROM asset_account
+UNION ALL SELECT 'debt_account', count(*) FROM debt_account
+UNION ALL SELECT 'financial_snapshot', count(*) FROM financial_snapshot
+UNION ALL SELECT 'financial_snapshot_document', count(*) FROM financial_snapshot_document
+UNION ALL SELECT 'important_date', count(*) FROM important_date
+UNION ALL SELECT 'income_event', count(*) FROM income_event
+UNION ALL SELECT 'income_summary_item', count(*) FROM income_summary_item
+UNION ALL SELECT 'monthly_withdrawal', count(*) FROM monthly_withdrawal
+ORDER BY table_name;
+```
+
+Expected for the current JSONB-backed implementation: the normalized tables can
+have `0` rows while `financial_snapshot_document` has `0` rows before first
+startup or `1` active row after the backend seeds/saves a snapshot.
+
 ---
 
 ## Financial data storage
@@ -458,6 +476,18 @@ financial_snapshot_document.snapshot_json
 
 This intentionally keeps the frontend API contract unchanged. The browser still
 loads one snapshot, edits a local draft, and saves one snapshot back to the API.
+
+The active repository implementation reads and writes only
+`financial_snapshot_document`. The normalized V1 tables
+(`financial_snapshot`, `monthly_withdrawal`, `annual_withdrawal`,
+`asset_account`, `debt_account`, `income_summary_item`, `income_event`, and
+`important_date`) are present as relational schema groundwork for a later
+granular persistence path. They may remain empty in a healthy local database.
+
+The local `financial_app_user` account is intentionally write-capable because
+it is the backend application user. For read-only inspection, use `SELECT`
+queries or create a separate PostgreSQL role with only `CONNECT`, `USAGE`, and
+`SELECT` privileges.
 
 When PostgreSQL is empty, the backend seeds the first active snapshot from:
 
@@ -704,6 +734,17 @@ Verify `pom.xml` formatting:
 .\mvnw.cmd clean verify
 ```
 
+## PostgreSQL profile smoke test
+
+After local PostgreSQL setup, this command verifies that the Spring Boot test
+context can start with the `postgres` profile and connect to
+`financial_app`:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="postgres"
+.\mvnw.cmd -B test
+```
+
 ---
 
 ## PostgreSQL integration test
@@ -813,8 +854,9 @@ Check:
 SELECT count(*) FROM financial_snapshot_document;
 ```
 
-A count of `0` is expected on a fresh machine. The backend should seed from
-`backend/data/financials.local.json` or fall back to
+A count of `0` is expected before the first PostgreSQL-backed backend startup.
+After the backend starts with `SPRING_PROFILES_ACTIVE=postgres`, it should seed
+one active row from `backend/data/financials.local.json` or fall back to
 `backend/data/financials.example.json`.
 
 If data from another machine is required, explicitly migrate it by copying the
@@ -829,7 +871,6 @@ The backend participates in repository CI pipelines for:
 - Maven builds
 - dependency scanning
 - Snyk security analysis
-- OWASP dependency checks
 - formatting verification
 - JaCoCo coverage
 
