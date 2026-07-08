@@ -433,7 +433,7 @@ Git hooks automatically run checks on staged files before commits.
 
 ### Path aliases
 
-The frontend uses the `@` alias for cleaner imports:
+The frontend config defines the `@` alias for cleaner imports:
 
 ```ts
 import { financialsService } from '@/api/endpoints/financials';
@@ -444,6 +444,9 @@ instead of deeply nested relative imports:
 ```ts
 import { financialsService } from '../../api/endpoints/financials';
 ```
+
+Current feature modules still mostly use relative imports. The alias is
+available for future cleanup but has not been applied broadly yet.
 
 ### Strict TypeScript
 

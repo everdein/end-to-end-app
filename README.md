@@ -32,7 +32,7 @@ engineering patterns and workflows that can scale over time.
 - Java 21
 - Maven
 - Spring JDBC
-- PostgreSQL foundation with Flyway migrations
+- PostgreSQL foundation with migration SQL
 
 ### Tooling / Quality
 
@@ -174,6 +174,11 @@ This mode requires:
 Important: `financial_app_user` is a database user used by the backend. It is not
 a frontend login user.
 
+Current implementation note: the active PostgreSQL persistence path stores the
+whole financial snapshot in `financial_snapshot_document.snapshot_json`. The
+normalized V1 tables also exist as a relational schema foundation, but they are
+not populated by the current repository implementation.
+
 ---
 
 ## Running the application
@@ -232,7 +237,8 @@ The script will:
 - create or update `financial_app_user`
 - create the `financial_app` database if it does not exist
 - assign database ownership and privileges
-- run the local schema migrations
+- apply the local migration SQL files when the target tables do not already
+  exist
 - verify the `financial_snapshot_document` table exists
 
 The script is safe to rerun. If the database and tables already exist, it skips
@@ -353,6 +359,10 @@ monthly_withdrawal
 
 A count of `0` in `financial_snapshot_document` is acceptable on a fresh
 database. The backend can seed the first snapshot from local JSON data.
+
+The current JSONB-backed implementation uses `financial_snapshot_document`.
+The other tables are present for the future relational persistence path and may
+remain empty.
 
 ---
 
@@ -547,6 +557,17 @@ cd backend
 .\mvnw.cmd sortpom:verify
 ```
 
+### PostgreSQL profile smoke test
+
+After local PostgreSQL setup, this command verifies that the Spring Boot test
+context can start with the `postgres` profile:
+
+```powershell
+cd backend
+$env:SPRING_PROFILES_ACTIVE="postgres"
+.\mvnw.cmd -B test
+```
+
 ---
 
 ## Troubleshooting
@@ -657,7 +678,10 @@ GitHub Actions currently validates:
 - frontend test coverage
 - frontend builds
 - backend builds
-- dependency/security scans
+- Snyk dependency/security scans
+
+The scan job expects the repository secret `SNYK_TOKEN`. `NVD_API_KEY` is not
+used by the current workflow.
 
 ---
 

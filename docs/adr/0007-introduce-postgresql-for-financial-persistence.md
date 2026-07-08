@@ -30,14 +30,19 @@ The first step is intentionally narrow:
 - migrate repository behavior in later slices instead of rewriting the full
   feature at once
 
+As implemented, the `postgres` profile reads and writes the active snapshot via
+`financial_snapshot_document.snapshot_json`. The normalized relational tables
+from the first migration remain schema groundwork for later granular CRUD and
+may be empty in a healthy database.
+
 ## Consequences
 
 This gives the app a real database foundation without breaking the current
 local workflow. The tradeoff is that the codebase temporarily has two
-persistence stories: JSON as the active implementation and PostgreSQL as the
-target implementation.
+persistence stories: JSON as the default local implementation and PostgreSQL
+JSONB as the database-backed implementation.
 
-Follow-up work should add database-backed repositories, CRUD APIs for financial
-records, broader integration tests around migrations and persistence behavior,
-and eventually snapshot versioning so concurrent writes cannot silently
-overwrite each other.
+Follow-up work should add relational database-backed repositories, CRUD APIs for
+financial records, broader integration tests around migrations and persistence
+behavior, and eventually snapshot versioning so concurrent writes cannot
+silently overwrite each other.
