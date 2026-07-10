@@ -1,0 +1,35 @@
+name: Documentation Drift
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  documentation-drift:
+    name: Documentation drift packet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run documentation drift check
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $arguments = @()
+
+          if (-not [string]::IsNullOrWhiteSpace($env:BASE_SHA) -and
+              -not [string]::IsNullOrWhiteSpace($env:HEAD_SHA)) {
+            $arguments += @("-BaseRef", $env:BASE_SHA, "-HeadRef", $env:HEAD_SHA)
+          }
+
+          ./scripts/check-documentation-drift.ps1 @arguments
