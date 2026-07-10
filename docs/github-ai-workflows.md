@@ -149,7 +149,9 @@ The script compares changed files with documented source owners, checks that
 source-map path references resolve to repository files, and emits a
 documentation drift packet. The GitHub workflow runs the same script for pull
 requests and manual dispatch, then writes the packet to the Actions job
-summary.
+summary. Packet generation is advisory: if the hosted runner cannot generate
+the packet, the workflow writes a warning summary instead of blocking the pull
+request.
 
 Use the packet to decide whether a documentation audit or correction is needed.
 It is deterministic context, not a final judgment. A flagged risk can be a
@@ -164,7 +166,9 @@ Dependabot is configured in `.github/dependabot.yml`.
 `.github/workflows/dependency-update-triage.yml` generates dependency triage
 packets for dependency-related pull requests and manual runs. Use
 `docs/dependency-update-triage.md` before accepting or rejecting generated
-updates.
+updates. Like documentation drift packets, dependency triage packets are
+advisory and fail open with a warning summary when packet generation is
+unavailable.
 
 `.github/workflows/weekly-maintenance.yml` runs scheduled maintenance review
 and writes weekly packets for dependency, CI, documentation, security, and

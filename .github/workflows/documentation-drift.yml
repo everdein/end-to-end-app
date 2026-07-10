@@ -32,4 +32,28 @@ jobs:
             $arguments += @("-BaseRef", $env:BASE_SHA, "-HeadRef", $env:HEAD_SHA)
           }
 
-          ./scripts/check-documentation-drift.ps1 @arguments
+          try {
+            & ./scripts/check-documentation-drift.ps1 @arguments
+          }
+          catch {
+            $message = $_.Exception.Message
+            Write-Host "::warning title=Documentation drift packet unavailable::Packet generation failed; see step summary."
+
+            $summary = @(
+              "# Documentation drift packet",
+              "",
+              "Packet generation failed, so this advisory workflow is reporting a warning instead of blocking the PR.",
+              "",
+              "Error:",
+              "",
+              '```',
+              $message,
+              '```'
+            ) -join [Environment]::NewLine
+
+            if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+              Set-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value $summary -Encoding UTF8
+            }
+
+            Write-Host $summary
+          }
