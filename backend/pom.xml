@@ -137,13 +137,19 @@
                      - report: Generate HTML/XML/CSV coverage reports (target/site/jacoco/)
                      - check: Verify minimum line coverage threshold (80% via COVEREDRATIO)
 
-                     Threshold: 80% line coverage across all production classes
-                     (excludes test classes via *Test pattern)
+                     Threshold: 80% line coverage across default production classes
+                     (excludes the opt-in V3 PostgreSQL relational adapter covered
+                     by isolated integration tests)
 
                      Reports available at: target/site/jacoco/index.html -->
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/example/backend/repository/PostgresFinancialRecordSnapshotAdapter*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -167,9 +173,6 @@
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>
-                                    <excludes>
-                                        <exclude>*Test</exclude>
-                                    </excludes>
                                     <limits>
                                         <limit>
                                             <counter>LINE</counter>

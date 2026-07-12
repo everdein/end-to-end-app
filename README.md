@@ -188,7 +188,9 @@ a frontend login user.
 Current implementation note: the active PostgreSQL persistence path stores the
 whole financial snapshot in `financial_snapshot_document.snapshot_json`. The
 normalized V1 tables also exist, but ADR 0009 keeps them inactive rather than
-using them as the runtime relational adapter path.
+using them as the runtime relational adapter path. The V3/V4
+`financial_record_*` tables and adapter are the tested relational path for
+granular persistence, but they are not active runtime storage yet.
 
 ---
 
@@ -250,7 +252,8 @@ The script will:
 - assign database ownership and privileges
 - apply the local migration SQL files when the target tables do not already
   exist
-- verify the `financial_snapshot_document` table exists
+- verify the `financial_snapshot_document` and `financial_record_snapshot`
+  tables exist
 
 The script is safe to rerun. If the database and tables already exist, it skips
 the create/migration steps and verifies the setup.
@@ -324,6 +327,8 @@ If `psql` is on the PATH:
 ```powershell
 psql -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V1__create_financials_schema.sql
 psql -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V2__create_financial_snapshot_document.sql
+psql -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V3__create_financial_record_snapshot_schema.sql
+psql -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V4__add_financial_record_app_id_constraints.sql
 ```
 
 On Windows, if `psql` is not recognized, use the full PostgreSQL path:
@@ -332,6 +337,10 @@ On Windows, if `psql` is not recognized, use the full PostgreSQL path:
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V1__create_financials_schema.sql
 
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V2__create_financial_snapshot_document.sql
+
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V3__create_financial_record_snapshot_schema.sql
+
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V4__add_financial_record_app_id_constraints.sql
 ```
 
 When prompted, use:
@@ -351,6 +360,7 @@ Inside `psql`:
 ```sql
 \dt
 SELECT count(*) FROM financial_snapshot_document;
+SELECT count(*) FROM financial_record_snapshot;
 \q
 ```
 
@@ -362,6 +372,14 @@ asset_account
 debt_account
 financial_snapshot
 financial_snapshot_document
+financial_record_annual_withdrawal
+financial_record_asset_account
+financial_record_debt_account
+financial_record_important_date
+financial_record_income_event
+financial_record_income_summary_item
+financial_record_monthly_bill
+financial_record_snapshot
 important_date
 income_event
 income_summary_item
@@ -371,10 +389,11 @@ monthly_withdrawal
 A count of `0` in `financial_snapshot_document` is acceptable on a fresh
 database. The backend can seed the first snapshot from local JSON data.
 
-The current JSONB-backed implementation uses `financial_snapshot_document`.
-The other tables are inactive historical groundwork and may remain empty.
-Future relational persistence should use a new additive migration path instead
-of backfilling or dual-writing those V1 tables.
+The current JSONB-backed runtime implementation uses
+`financial_snapshot_document`. The V1 tables are inactive historical
+groundwork and may remain empty. The V3/V4 `financial_record_*` tables are the
+tested relational adapter path and may also remain empty until the runtime
+service is intentionally wired to that adapter.
 
 ---
 
@@ -439,16 +458,38 @@ Financial snapshot endpoints:
 ```http
 GET /api/v1/financials
 GET /api/v1/financials/export
+GET /api/v1/financials/export/csv
+GET /api/v1/financials/export/xlsx
+POST /api/v1/financials/import/csv
+POST /api/v1/financials/import/xlsx
 PUT /api/v1/financials
 PUT /api/v1/financials/pay-period
 ```
 
-Granular bill endpoints:
+Granular record endpoints:
 
 ```http
 POST /api/v1/financials/bills
 PUT /api/v1/financials/bills/{id}
 DELETE /api/v1/financials/bills/{id}
+POST /api/v1/financials/annual-withdrawals
+PUT /api/v1/financials/annual-withdrawals/{id}
+DELETE /api/v1/financials/annual-withdrawals/{id}
+POST /api/v1/financials/asset-accounts
+PUT /api/v1/financials/asset-accounts/{id}
+DELETE /api/v1/financials/asset-accounts/{id}
+POST /api/v1/financials/debt-accounts
+PUT /api/v1/financials/debt-accounts/{id}
+DELETE /api/v1/financials/debt-accounts/{id}
+POST /api/v1/financials/income-summary-items
+PUT /api/v1/financials/income-summary-items/{id}
+DELETE /api/v1/financials/income-summary-items/{id}
+POST /api/v1/financials/income-events
+PUT /api/v1/financials/income-events/{id}
+DELETE /api/v1/financials/income-events/{id}
+POST /api/v1/financials/important-dates
+PUT /api/v1/financials/important-dates/{id}
+DELETE /api/v1/financials/important-dates/{id}
 ```
 
 The Financials UI currently uses a draft/save workflow:
@@ -461,12 +502,25 @@ The Financials UI currently uses a draft/save workflow:
 If another tab or client saves first, the backend returns `409 Conflict` rather
 than silently overwriting the newer snapshot.
 
-The export endpoint downloads the currently saved source snapshot as a
-`financial-snapshot-v{version}.json` backup. It excludes calculated UI fields
-and should be handled as personal financial data.
+The export endpoints download the currently saved source snapshot as JSON, CSV,
+or XLSX. The JSON file preserves the full request-shaped backup envelope; CSV
+and XLSX use one tabular exchange format that can also be imported back through
+the version-checked restore endpoints. Imports replace the complete snapshot,
+so stale files return `409 Conflict` instead of silently overwriting newer
+data. Export and import files should be handled as personal financial data.
 
-The individual bill endpoints remain available as a more granular API option,
-but the current UI treats the snapshot as the source of truth.
+PowerShell helpers are available for local operators:
+
+```powershell
+.\scripts\export-financial-snapshot.ps1 -Format csv -OutputPath "$HOME\Downloads\financial-snapshot.csv"
+.\scripts\import-financial-snapshot.ps1 -InputPath "$HOME\Downloads\financial-snapshot.csv" -ConfirmRestore
+```
+
+The export helper refuses repository output paths unless `-AllowRepositoryPath`
+is supplied for synthetic/mock data.
+
+The individual record endpoints remain available as granular API options, but
+the current UI treats the snapshot as the source of truth.
 
 ---
 
@@ -586,8 +640,8 @@ cd backend
 
 ### PostgreSQL profile smoke test
 
-After local PostgreSQL setup, this command runs the snapshot-store integration
-tests in the dedicated `financial_snapshot_store_test` schema:
+After local PostgreSQL setup, this command runs the snapshot-store and V3/V4
+record-adapter integration tests in dedicated isolated schemas:
 
 ```powershell
 .\scripts\verify-local.ps1 -IncludePostgres
@@ -793,6 +847,10 @@ Manual fallback:
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V1__create_financials_schema.sql
 
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V2__create_financial_snapshot_document.sql
+
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V3__create_financial_record_snapshot_schema.sql
+
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app -f .\backend\src\main\resources\db\migration\V4__add_financial_record_app_id_constraints.sql
 ```
 
 ---
@@ -856,8 +914,9 @@ Each subproject README is intentionally self-contained.
 Current intentional limitations:
 
 - JSON remains the default local fallback
-- PostgreSQL stores the full snapshot as `jsonb`; granular database-backed CRUD
-  is not implemented yet
+- PostgreSQL stores the active runtime snapshot as `jsonb`; V3/V4 relational
+  tables and adapter support tested database-backed CRUD, but the runtime
+  service is not wired to them yet
 - no authentication
 - no routing
 - no deployment infrastructure

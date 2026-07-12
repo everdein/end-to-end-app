@@ -42,11 +42,11 @@ changes in a new ADR.
 
 - **Status:** Partially resolved for full-snapshot saves
 - **Impact:** `PUT /api/v1/financials` rejects stale versions with `409`, but
-  granular bill and pay-period endpoints still mutate immediately without a
+  granular record and pay-period endpoints still mutate immediately without a
   client-supplied aggregate version.
 - **Current mitigation:** The current browser workspace primarily uses the
-  versioned full-snapshot save boundary; granular endpoints remain direct API
-  utilities.
+  versioned full-snapshot save boundary; ADR 0012 records that granular
+  endpoints remain direct API utilities.
 - **Revisit when:** Multiple tabs/users, remote access, background writes,
   synchronization, or broader granular editing are supported.
 
@@ -130,13 +130,15 @@ changes in a new ADR.
 ### LIM-012 — PostgreSQL stores one JSONB document
 
 - **Status:** Accepted transitional design
-- **Impact:** Individual records cannot be queried, constrained, audited, or
-  updated relationally. Every save rewrites the aggregate.
+- **Impact:** The active runtime path still rewrites the aggregate JSONB
+  document. Relational per-record writes are implemented in the inactive V3/V4
+  adapter path but are not used by the service yet.
 - **Current mitigation:** One active document, version metadata, serialization
-  parity tests, and simple load/save behavior.
+  parity tests, simple load/save behavior, and a tested but inactive V3/V4
+  relational adapter path with granular CRUD operations.
 - **Revisit when:** Reporting, granular concurrency, audit history, relational
-  integrity, or large snapshots are needed. Use ADR 0009's new-migration path,
-  not the inactive V1 tables as-is.
+  integrity, or large snapshots are needed. Use ADR 0010 and ADR 0011's
+  V3/V4 relational path, not the inactive V1 tables as-is.
 
 ### LIM-013 — Normalized V1 tables are inactive
 
@@ -144,16 +146,17 @@ changes in a new ADR.
 - **Impact:** Their presence can mislead operators into expecting data; they may
   remain empty while the application is healthy.
 - **Current mitigation:** Storage guide, inspector, and architecture map
-  identify `financial_snapshot_document` as authoritative and prohibit
-  dual-write/backfill through V1.
-- **Revisit when:** Planning a production schema cleanup or designing a new
-  additive relational persistence migration.
+  identify `financial_snapshot_document` as authoritative, identify V3/V4 as
+  the future runtime relational path, and prohibit dual-write/backfill through
+  V1.
+- **Revisit when:** Planning a production schema cleanup or activating the
+  V3/V4 adapter in the runtime service.
 
 ### LIM-014 — Local setup and runtime have dual migration paths
 
 - **Status:** Known development limitation
-- **Impact:** The setup script applies V1/V2 SQL directly, while the runtime
-  enables Flyway. A database can contain tables without
+- **Impact:** The setup script applies V1/V2/V3/V4 SQL directly, while the
+  runtime enables Flyway. A database can contain schema objects without
   `flyway_schema_history`, weakening migration-state evidence.
 - **Current mitigation:** Inspect both object presence and Flyway history; keep
   migrations additive.
@@ -169,15 +172,17 @@ changes in a new ADR.
   read-only role for MCP/reporting.
 - **Revisit when:** Configuring any shared or production database.
 
-### LIM-016 — No automated backup, restore, or profile migration
+### LIM-016 — No automated backup schedule or profile migration
 
 - **Status:** Partially mitigated
-- **Impact:** The app can export the saved snapshot as JSON, but there is still
-  no automated backup schedule, import/restore command, PostgreSQL dump flow, or
-  verified cross-profile migration workflow.
-- **Current mitigation:** Manual `GET /api/v1/financials/export` downloads,
-  operator backups before risky changes, and metadata-only verification
-  afterward.
+- **Impact:** The app can export the saved snapshot as JSON, CSV, or XLSX and
+  can restore from the CSV/XLSX tabular format, but there is still no automated
+  backup schedule, PostgreSQL dump flow, or verified cross-profile migration
+  workflow.
+- **Current mitigation:** Manual `GET /api/v1/financials/export*` downloads,
+  explicit `POST /api/v1/financials/import/{csv,xlsx}` restores, PowerShell
+  helpers that avoid printing financial contents, operator backups before risky
+  changes, and metadata-only verification afterward.
 - **Revisit when:** Personal data becomes irreplaceable, migrations recur, or a
   deployment is planned.
 

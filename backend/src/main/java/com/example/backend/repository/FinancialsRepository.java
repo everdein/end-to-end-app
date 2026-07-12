@@ -1,5 +1,13 @@
 package com.example.backend.repository;
 
+import com.example.backend.domain.financials.AnnualWithdrawal;
+import com.example.backend.domain.financials.AssetAccount;
+import com.example.backend.domain.financials.DebtAccount;
+import com.example.backend.domain.financials.ExpenseBill;
+import com.example.backend.domain.financials.FinancialSnapshot;
+import com.example.backend.domain.financials.ImportantDate;
+import com.example.backend.domain.financials.IncomeEvent;
+import com.example.backend.domain.financials.IncomeSummaryItem;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,8 +83,8 @@ public class FinancialsRepository {
     return version;
   }
 
-  public synchronized FinancialsData currentSnapshotData() {
-    return new FinancialsData(
+  public synchronized FinancialSnapshot currentSnapshot() {
+    return new FinancialSnapshot(
         version,
         payPeriodStart,
         payPeriodEnd,
@@ -117,30 +125,192 @@ public class FinancialsRepository {
     return removed;
   }
 
+  public synchronized AnnualWithdrawal addAnnualWithdrawal(AnnualWithdrawal withdrawal) {
+    AnnualWithdrawal created = withdrawal.withId(nextAnnualWithdrawalId.getAndIncrement());
+    annualWithdrawals.add(created);
+    persist();
+    return created;
+  }
+
+  public synchronized Optional<AnnualWithdrawal> updateAnnualWithdrawal(
+      long id, AnnualWithdrawal withdrawal) {
+    for (int index = 0; index < annualWithdrawals.size(); index++) {
+      if (annualWithdrawals.get(index).id() == id) {
+        AnnualWithdrawal updated = withdrawal.withId(id);
+        annualWithdrawals.set(index, updated);
+        persist();
+        return Optional.of(updated);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  public synchronized boolean deleteAnnualWithdrawal(long id) {
+    boolean removed = annualWithdrawals.removeIf((withdrawal) -> withdrawal.id() == id);
+    if (removed) {
+      persist();
+    }
+    return removed;
+  }
+
+  public synchronized AssetAccount addAssetAccount(AssetAccount account) {
+    AssetAccount created = account.withId(nextAssetId.getAndIncrement());
+    assetAccounts.add(created);
+    persist();
+    return created;
+  }
+
+  public synchronized Optional<AssetAccount> updateAssetAccount(long id, AssetAccount account) {
+    for (int index = 0; index < assetAccounts.size(); index++) {
+      if (assetAccounts.get(index).id() == id) {
+        AssetAccount updated = account.withId(id);
+        assetAccounts.set(index, updated);
+        persist();
+        return Optional.of(updated);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  public synchronized boolean deleteAssetAccount(long id) {
+    boolean removed = assetAccounts.removeIf((account) -> account.id() == id);
+    if (removed) {
+      persist();
+    }
+    return removed;
+  }
+
+  public synchronized DebtAccount addDebtAccount(DebtAccount account) {
+    DebtAccount created = account.withId(nextDebtAccountId.getAndIncrement());
+    debtAccounts.add(created);
+    persist();
+    return created;
+  }
+
+  public synchronized Optional<DebtAccount> updateDebtAccount(long id, DebtAccount account) {
+    for (int index = 0; index < debtAccounts.size(); index++) {
+      if (debtAccounts.get(index).id() == id) {
+        DebtAccount updated = account.withId(id);
+        debtAccounts.set(index, updated);
+        persist();
+        return Optional.of(updated);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  public synchronized boolean deleteDebtAccount(long id) {
+    boolean removed = debtAccounts.removeIf((account) -> account.id() == id);
+    if (removed) {
+      persist();
+    }
+    return removed;
+  }
+
+  public synchronized IncomeSummaryItem addIncomeSummaryItem(IncomeSummaryItem item) {
+    IncomeSummaryItem created = item.withId(nextIncomeSummaryItemId.getAndIncrement());
+    incomeSummaryItems.add(created);
+    persist();
+    return created;
+  }
+
+  public synchronized Optional<IncomeSummaryItem> updateIncomeSummaryItem(
+      long id, IncomeSummaryItem item) {
+    for (int index = 0; index < incomeSummaryItems.size(); index++) {
+      if (incomeSummaryItems.get(index).id() == id) {
+        IncomeSummaryItem updated = item.withId(id);
+        incomeSummaryItems.set(index, updated);
+        persist();
+        return Optional.of(updated);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  public synchronized boolean deleteIncomeSummaryItem(long id) {
+    boolean removed = incomeSummaryItems.removeIf((item) -> item.id() == id);
+    if (removed) {
+      persist();
+    }
+    return removed;
+  }
+
+  public synchronized IncomeEvent addIncomeEvent(IncomeEvent event) {
+    IncomeEvent created = event.withId(nextIncomeEventId.getAndIncrement());
+    incomeEvents.add(created);
+    persist();
+    return created;
+  }
+
+  public synchronized Optional<IncomeEvent> updateIncomeEvent(long id, IncomeEvent event) {
+    for (int index = 0; index < incomeEvents.size(); index++) {
+      if (incomeEvents.get(index).id() == id) {
+        IncomeEvent updated = event.withId(id);
+        incomeEvents.set(index, updated);
+        persist();
+        return Optional.of(updated);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  public synchronized boolean deleteIncomeEvent(long id) {
+    boolean removed = incomeEvents.removeIf((event) -> event.id() == id);
+    if (removed) {
+      persist();
+    }
+    return removed;
+  }
+
+  public synchronized ImportantDate addImportantDate(ImportantDate importantDate) {
+    ImportantDate created = importantDate.withId(nextImportantDateId.getAndIncrement());
+    importantDates.add(created);
+    persist();
+    return created;
+  }
+
+  public synchronized Optional<ImportantDate> updateImportantDate(
+      long id, ImportantDate importantDate) {
+    for (int index = 0; index < importantDates.size(); index++) {
+      if (importantDates.get(index).id() == id) {
+        ImportantDate updated = importantDate.withId(id);
+        importantDates.set(index, updated);
+        persist();
+        return Optional.of(updated);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  public synchronized boolean deleteImportantDate(long id) {
+    boolean removed = importantDates.removeIf((importantDate) -> importantDate.id() == id);
+    if (removed) {
+      persist();
+    }
+    return removed;
+  }
+
   public synchronized void replaceSnapshot(
-      long expectedVersion,
-      LocalDate startDate,
-      LocalDate endDate,
-      List<ExpenseBill> replacementBills,
-      List<AnnualWithdrawal> replacementAnnualWithdrawals,
-      List<AssetAccount> replacementAssetAccounts,
-      List<DebtAccount> replacementDebtAccounts,
-      List<IncomeSummaryItem> replacementIncomeSummaryItems,
-      List<IncomeEvent> replacementIncomeEvents,
-      List<ImportantDate> replacementImportantDates) {
+      long expectedVersion, FinancialSnapshot replacementSnapshot) {
     if (expectedVersion != version) {
       throw new SnapshotVersionConflictException(expectedVersion, version);
     }
 
     bills.clear();
-    for (ExpenseBill bill : replacementBills) {
+    for (ExpenseBill bill : replacementSnapshot.bills()) {
       long id = bill.id() > 0 ? bill.id() : nextId.getAndIncrement();
       bills.add(bill.withId(id));
       nextId.updateAndGet((current) -> Math.max(current, id + 1));
     }
 
     annualWithdrawals.clear();
-    for (AnnualWithdrawal annualWithdrawal : replacementAnnualWithdrawals) {
+    for (AnnualWithdrawal annualWithdrawal : replacementSnapshot.annualWithdrawals()) {
       long id =
           annualWithdrawal.id() > 0
               ? annualWithdrawal.id()
@@ -150,42 +320,42 @@ public class FinancialsRepository {
     }
 
     assetAccounts.clear();
-    for (AssetAccount account : replacementAssetAccounts) {
+    for (AssetAccount account : replacementSnapshot.assetAccounts()) {
       long id = account.id() > 0 ? account.id() : nextAssetId.getAndIncrement();
       assetAccounts.add(account.withId(id));
       nextAssetId.updateAndGet((current) -> Math.max(current, id + 1));
     }
 
     debtAccounts.clear();
-    for (DebtAccount account : replacementDebtAccounts) {
+    for (DebtAccount account : replacementSnapshot.debtAccounts()) {
       long id = account.id() > 0 ? account.id() : nextDebtAccountId.getAndIncrement();
       debtAccounts.add(account.withId(id));
       nextDebtAccountId.updateAndGet((current) -> Math.max(current, id + 1));
     }
 
     incomeSummaryItems.clear();
-    for (IncomeSummaryItem item : replacementIncomeSummaryItems) {
+    for (IncomeSummaryItem item : replacementSnapshot.incomeSummaryItems()) {
       long id = item.id() > 0 ? item.id() : nextIncomeSummaryItemId.getAndIncrement();
       incomeSummaryItems.add(item.withId(id));
       nextIncomeSummaryItemId.updateAndGet((current) -> Math.max(current, id + 1));
     }
 
     incomeEvents.clear();
-    for (IncomeEvent event : replacementIncomeEvents) {
+    for (IncomeEvent event : replacementSnapshot.incomeEvents()) {
       long id = event.id() > 0 ? event.id() : nextIncomeEventId.getAndIncrement();
       incomeEvents.add(event.withId(id));
       nextIncomeEventId.updateAndGet((current) -> Math.max(current, id + 1));
     }
 
     importantDates.clear();
-    for (ImportantDate importantDate : replacementImportantDates) {
+    for (ImportantDate importantDate : replacementSnapshot.importantDates()) {
       long id = importantDate.id() > 0 ? importantDate.id() : nextImportantDateId.getAndIncrement();
       importantDates.add(importantDate.withId(id));
       nextImportantDateId.updateAndGet((current) -> Math.max(current, id + 1));
     }
 
-    payPeriodStart = startDate;
-    payPeriodEnd = endDate;
+    payPeriodStart = replacementSnapshot.payPeriodStart();
+    payPeriodEnd = replacementSnapshot.payPeriodEnd();
     persist();
   }
 
@@ -204,41 +374,30 @@ public class FinancialsRepository {
   }
 
   private void load() {
-    FinancialsData data = snapshotStore.load();
-    version = data.version();
-    payPeriodStart = data.payPeriodStart();
-    payPeriodEnd = data.payPeriodEnd();
+    FinancialSnapshot snapshot = snapshotStore.load().toSnapshot();
+    version = snapshot.version();
+    payPeriodStart = snapshot.payPeriodStart();
+    payPeriodEnd = snapshot.payPeriodEnd();
     bills.clear();
-    bills.addAll(nullSafe(data.bills()));
+    bills.addAll(snapshot.bills());
     annualWithdrawals.clear();
-    annualWithdrawals.addAll(nullSafe(data.annualWithdrawals()));
+    annualWithdrawals.addAll(snapshot.annualWithdrawals());
     assetAccounts.clear();
-    assetAccounts.addAll(nullSafe(data.assetAccounts()));
+    assetAccounts.addAll(snapshot.assetAccounts());
     debtAccounts.clear();
-    debtAccounts.addAll(nullSafe(data.debtAccounts()));
+    debtAccounts.addAll(snapshot.debtAccounts());
     incomeSummaryItems.clear();
-    incomeSummaryItems.addAll(nullSafe(data.incomeSummaryItems()));
+    incomeSummaryItems.addAll(snapshot.incomeSummaryItems());
     incomeEvents.clear();
-    incomeEvents.addAll(nullSafe(data.incomeEvents()));
+    incomeEvents.addAll(snapshot.incomeEvents());
     importantDates.clear();
-    importantDates.addAll(nullSafe(data.importantDates()));
+    importantDates.addAll(snapshot.importantDates());
     resetNextIds();
   }
 
   private void persist() {
     version += 1;
-    snapshotStore.save(
-        new FinancialsData(
-            version,
-            payPeriodStart,
-            payPeriodEnd,
-            bills,
-            annualWithdrawals,
-            assetAccounts,
-            debtAccounts,
-            incomeSummaryItems,
-            incomeEvents,
-            importantDates));
+    snapshotStore.save(FinancialsData.fromSnapshot(currentSnapshot()));
   }
 
   private void resetNextIds() {

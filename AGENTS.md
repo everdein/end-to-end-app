@@ -19,7 +19,9 @@ The application edits and saves one financial snapshot aggregate. The default
 profile stores local JSON. The `postgres` profile stores that aggregate in
 `financial_snapshot_document.snapshot_json`. The V1 normalized tables are
 inactive historical groundwork and are not the active or planned runtime
-persistence path as-is.
+persistence path as-is. The V3/V4 `financial_record_*` tables and adapter are
+the tested future relational path, including internal granular CRUD support,
+but runtime persistence still uses the JSONB document store.
 
 ## Directory Ownership
 
@@ -28,6 +30,8 @@ persistence path as-is.
 - `frontend/src/api/`: HTTP client behavior and endpoint integration.
 - `backend/src/main/java/.../api/` and `dto/`: HTTP boundaries and snapshot
   contract.
+- `backend/src/main/java/.../domain/financials/`: financial record types and
+  the saved snapshot aggregate used inside the backend.
 - `backend/src/main/java/.../service/`: validation, calculations, and domain
   orchestration.
 - `backend/src/main/java/.../repository/`: JSON and PostgreSQL persistence.
@@ -90,8 +94,9 @@ a branch, implementation, verification report, or draft PR.
   and SortPom; run formatters only on files in scope.
 - Keep React components focused, immutable Redux updates explicit, and
   financial/date calculations in named helpers with tests.
-- Keep controllers thin, DTOs at the API boundary, business rules in services,
-  and storage details behind repository interfaces.
+- Keep controllers thin, DTOs at the API boundary, financial record models in
+  the domain package, business rules in services, and storage details behind
+  repository interfaces.
 - Prefer existing naming and package patterns. Avoid broad cleanup mixed with a
   behavioral change.
 - Never log secrets or full personal financial snapshots.
@@ -115,6 +120,8 @@ From the repository root:
 .\scripts\inspect-postgres.ps1
 .\scripts\setup-postgres-readonly-role.ps1
 .\scripts\run-browser-checks.ps1
+.\scripts\export-financial-snapshot.ps1 -Format csv -OutputPath <outside-repo-path>
+.\scripts\import-financial-snapshot.ps1 -InputPath <outside-repo-path> -ConfirmRestore
 .\scripts\check-documentation-drift.ps1
 .\scripts\triage-dependency-updates.ps1
 .\scripts\generate-engineering-status.ps1
@@ -150,6 +157,9 @@ or security policy from a packet alone.
 - `backend/data/financials.local.json`, PostgreSQL contents, exports, logs, and
   screenshots may contain personal data. Do not commit, paste, summarize, or
   send them to external services.
+- JSON, CSV, and XLSX snapshot exports are backup/restore artifacts. Store them
+  outside the repository unless the data is synthetic and `-AllowRepositoryPath`
+  is intentional.
 - Prefer metadata, counts, keys, and redacted/minimal reproductions when
   diagnosing personal data. Ask before reading full local records.
 - Never replace personal local data with mock data, seed over it, or migrate it
@@ -162,8 +172,9 @@ or security policy from a packet alone.
 - Full-snapshot saves use optimistic version checks; granular endpoints still
   mutate immediately without client-supplied aggregate versions.
 - PostgreSQL persists one JSONB snapshot. V1 normalized tables are inactive
-  historical groundwork and may remain empty; future relational persistence
-  should use a new additive migration path.
+  historical groundwork and may remain empty. V3/V4 `financial_record_*`
+  tables provide the tested relational adapter and granular CRUD path but are
+  not the active runtime persistence path yet.
 - JSON is the default local profile. PostgreSQL setup and integration tests are
   opt-in.
 - The deploy workflow is a manual placeholder, not a production release path.

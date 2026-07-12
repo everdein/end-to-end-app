@@ -21,8 +21,8 @@ flowchart LR
 ```
 
 There is no authentication, multi-user isolation, or production deployment.
-Full-snapshot saves use optimistic version checks; granular bill and pay-period
-routes still mutate the single aggregate immediately.
+Full-snapshot saves use optimistic version checks; granular record and
+pay-period routes still mutate the single aggregate immediately.
 
 ## Frontend
 
@@ -57,23 +57,28 @@ flowchart TD
     Controller["api/FinancialsController"] --> DTO["dto/financials request and response records"]
     Controller --> Service["service/FinancialsService"]
     Service --> DatePolicy["service/PayPeriodDatePolicy"]
+    Service --> Domain["domain/financials aggregate + records"]
     Service --> Repository["repository/FinancialsRepository"]
-    Repository --> Models["repository domain records"]
+    Repository --> Domain
     Repository --> Interface["FinancialsSnapshotStore"]
+    Repository -. "future runtime path" .-> RecordAdapter["PostgresFinancialRecordSnapshotAdapter"]
     Interface --> JsonStore["JsonFinancialsSnapshotStore<br/>@Profile(json)"]
     Interface --> PostgresStore["PostgresFinancialsSnapshotStore<br/>@Profile(postgres)"]
+    RecordAdapter --> RecordTables["financial_record_* tables<br/>inactive runtime path"]
 ```
 
-| Layer                             | Responsibilities                                                        | Must not own                          |
-| --------------------------------- | ----------------------------------------------------------------------- | ------------------------------------- |
-| `api/`                            | Routes, validation entry points, HTTP status mapping                    | Persistence or financial calculations |
-| `dto/financials/`                 | External request/response contract                                      | Storage implementation                |
-| `service/`                        | Validation, date policy, totals, normalization, orchestration           | File or SQL access                    |
-| `repository/FinancialsRepository` | In-memory aggregate, IDs, synchronized mutation, persistence delegation | HTTP behavior                         |
-| `repository/*SnapshotStore`       | Load/save serialization for one storage mode                            | API response derivation               |
-| `config/`                         | Bound persistence configuration                                         | Domain behavior                       |
+| Layer                                    | Responsibilities                                                                  | Must not own                          |
+| ---------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------- |
+| `api/`                                   | Routes, validation entry points, HTTP status mapping                              | Persistence or financial calculations |
+| `dto/financials/`                        | External request/response contract                                                | Storage implementation                |
+| `domain/financials/`                     | Backend financial record types and saved snapshot aggregate                       | HTTP or storage implementation        |
+| `service/`                               | Validation, date policy, totals, normalization, orchestration                     | File or SQL access                    |
+| `repository/FinancialsRepository`        | In-memory aggregate, IDs, synchronized mutation, persistence delegation           | HTTP behavior                         |
+| `repository/*SnapshotStore`              | Load/save serialization for one storage mode                                      | API response derivation               |
+| `PostgresFinancialRecordSnapshotAdapter` | Tested V3/V4 relational save/load and granular CRUD path for the domain aggregate | Active runtime persistence            |
+| `config/`                                | Bound persistence configuration                                                   | Domain behavior                       |
 
-The granular bill and pay-period routes use the same repository aggregate as
+The granular record and pay-period routes use the same repository aggregate as
 the full snapshot route. The current UI uses the full snapshot as its primary
 save boundary.
 
@@ -92,7 +97,11 @@ save boundary.
 inactive historical groundwork. ADR 0009 decides they should not become the
 active relational persistence path as-is, and they may remain empty.
 `V2__create_financial_snapshot_document.sql` defines the active JSONB document
-store. Future relational persistence should use a new additive migration path.
+store. `V3__create_financial_record_snapshot_schema.sql` defines the
+`financial_record_*` relational table family from ADR 0010, and
+`V4__add_financial_record_app_id_constraints.sql` adds the app-record
+uniqueness needed by the granular CRUD adapter from ADR 0011. The runtime
+service is not wired to that relational adapter yet.
 The application role is write-capable; inspection integrations should use a
 separate read-only role.
 
@@ -120,7 +129,7 @@ sequenceDiagram
     Redux->>Client: PUT /api/v1/financials
     Client->>API: validated snapshot request
     API->>Domain: saveSnapshot()
-    Domain->>Repo: replaceSnapshot(expectedVersion, ...)
+    Domain->>Repo: replaceSnapshot(expectedVersion, FinancialSnapshot)
     alt version is stale
         Repo-->>Domain: SnapshotVersionConflictException
         Domain-->>Page: 409 Conflict through API/Redux
@@ -135,6 +144,12 @@ Derived totals are returned by the backend and are not accepted as persisted
 request fields. Some frontend summary and projection values are also derived
 for presentation. Contract changes must be traced across frontend types,
 request construction, backend DTOs, service mapping, both stores, and tests.
+
+CSV and XLSX import/export are API-boundary codecs around the same source
+snapshot shape. `FinancialSnapshotTabularCodec` converts between the
+full-snapshot request DTO and a fixed-column tabular format; imports still call
+the version-checked full-snapshot save path and do not introduce a separate
+storage model.
 
 ## Verification and Delivery
 
@@ -171,6 +186,7 @@ manual placeholder, not production infrastructure.
 | -------------------------------- | ------------------------------------------ | --------------------------------------------------------- |
 | UI interaction or draft behavior | `frontend/src/features/financials/`        | Slice, API types, accessibility, tests                    |
 | HTTP contract                    | Controller and DTOs                        | Frontend endpoint types, service, contract tests, docs    |
+| CSV/XLSX import/export           | `FinancialSnapshotTabularCodec`            | Controller/service tests, API docs, data-safety rules     |
 | Financial/date rule              | Backend service or focused frontend helper | Both presentation and persistence assumptions             |
 | JSON behavior                    | `JsonFinancialsSnapshotStore`              | PostgreSQL parity and seed policy                         |
 | PostgreSQL behavior              | Store plus additive migration              | JSON parity, isolated integration test, storage docs      |

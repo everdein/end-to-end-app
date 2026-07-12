@@ -19,6 +19,10 @@ as the codebase evolves.
 | [0007](0007-introduce-postgresql-for-financial-persistence.md)  | Accepted | Introduce PostgreSQL for financial persistence  |
 | [0008](0008-add-snapshot-version-concurrency-control.md)        | Accepted | Add snapshot version concurrency control        |
 | [0009](0009-keep-v1-normalized-tables-inactive.md)              | Accepted | Keep V1 normalized tables inactive              |
+| [0010](0010-add-v3-relational-financial-record-path.md)         | Accepted | Add V3 relational financial record path         |
+| [0011](0011-add-granular-postgresql-record-persistence.md)      | Accepted | Add granular PostgreSQL record persistence      |
+| [0012](0012-add-granular-financial-record-apis.md)              | Accepted | Add granular financial record APIs              |
+| [0013](0013-add-tabular-financial-snapshot-import-export.md)    | Accepted | Add tabular snapshot import/export              |
 
 ## Template
 

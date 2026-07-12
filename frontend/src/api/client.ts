@@ -31,11 +31,35 @@ export async function httpGet<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function httpGetBlob(url: string): Promise<Blob> {
+  const res = await fetch(url);
+
+  await assertOk(res);
+
+  return await res.blob();
+}
+
 export async function httpPost<T, B = unknown>(url: string, body: B): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body as unknown),
+  });
+
+  await assertOk(res);
+
+  return (await res.json()) as T;
+}
+
+export async function httpPostRaw<T>(
+  url: string,
+  body: string | Blob | ArrayBuffer,
+  contentType: string
+): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': contentType },
+    body,
   });
 
   await assertOk(res);

@@ -32,7 +32,8 @@ Any future relational persistence work should use a new additive migration path
 instead of retrofitting V1. That future path should follow clearer domain model
 and API decisions, include explicit JSON-to-relational migration/backfill
 steps, preserve snapshot export/backup recovery, and prove parity with the
-existing JSONB document behavior before becoming active.
+existing JSONB document behavior before becoming active. ADR 0010 establishes
+the V3 `financial_record_*` migration and adapter path for that follow-up work.
 
 ## Consequences
 

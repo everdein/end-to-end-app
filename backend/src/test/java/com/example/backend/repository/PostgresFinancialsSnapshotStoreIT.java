@@ -2,6 +2,7 @@ package com.example.backend.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.backend.domain.financials.ExpenseBill;
 import java.math.BigDecimal;
 import java.nio.file.Path;
 import java.time.LocalDate;

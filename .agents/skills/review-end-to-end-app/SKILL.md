@@ -28,4 +28,8 @@ description: Review the end-to-end-app repository, pull requests, or change sets
 
 Treat the V1 normalized tables as inactive historical groundwork; ADR 0009 keeps
 them out of the runtime relational adapter path. Do not infer that an
-authenticated Snyk scan passed from `npm audit`.
+empty V1 table means PostgreSQL persistence is broken. Treat V3/V4
+`financial_record_*` tables as the tested future relational path from ADR 0010
+and ADR 0011, not as active runtime storage until the service is explicitly
+wired to them. Do not infer that an authenticated Snyk scan passed from
+`npm audit`.

@@ -38,15 +38,16 @@ by isolated technical concern.
       end-to-end coverage for load, edit, save, refresh, and delete
       confirmation.
 - [x] Add recurring payday generation for yearly income calendars.
+- [x] Introduce a clearer backend domain model around financial records.
+- [x] Add a clean relational PostgreSQL migration/adapter path for financial
+      records.
+- [x] Add granular PostgreSQL CRUD persistence for financial records.
+- [x] Add CRUD APIs for financial records beyond the existing bill endpoints.
+- [x] Add CSV/XLSX import and export tooling.
 
 ## Phase A - Make It Real
 
-- [ ] Introduce a clearer backend domain model around financial records.
-- [ ] Add a clean relational PostgreSQL migration/adapter path for financial
-      records.
-- [ ] Add granular PostgreSQL CRUD persistence for financial records.
-- [ ] Add CRUD APIs for financial records beyond the existing bill endpoints.
-- [ ] Add CSV/XLSX import and export tooling.
+Phase A is complete.
 
 ## Phase B - Make It Safe
 
@@ -76,5 +77,5 @@ by isolated technical concern.
 
 Next highest-value items:
 
-1. Introduce a clearer backend domain model around financial records.
-2. Add CSV/XLSX import and export tooling.
+1. Harden and complete validation/error handling across all future endpoints.
+2. Add authentication and authorization for all financial APIs.

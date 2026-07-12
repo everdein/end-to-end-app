@@ -15,19 +15,42 @@ controller annotations remain authoritative.
 
 ## Endpoints
 
-| Method   | Path                            | Success        | Purpose                                    |
-| -------- | ------------------------------- | -------------- | ------------------------------------------ |
-| `GET`    | `/api/v1/financials`            | `200` snapshot | Load the calculated current workspace      |
-| `GET`    | `/api/v1/financials/export`     | `200` export   | Download the saved source snapshot as JSON |
-| `PUT`    | `/api/v1/financials`            | `200` snapshot | Replace and return the complete snapshot   |
-| `POST`   | `/api/v1/financials/bills`      | `201` bill     | Add one monthly bill immediately           |
-| `PUT`    | `/api/v1/financials/bills/{id}` | `200` bill     | Replace one existing monthly bill          |
-| `DELETE` | `/api/v1/financials/bills/{id}` | `204` empty    | Delete one existing monthly bill           |
-| `PUT`    | `/api/v1/financials/pay-period` | `200` snapshot | Replace pay-period anchor dates            |
+| Method   | Path                                           | Success        | Purpose                                    |
+| -------- | ---------------------------------------------- | -------------- | ------------------------------------------ |
+| `GET`    | `/api/v1/financials`                           | `200` snapshot | Load the calculated current workspace      |
+| `GET`    | `/api/v1/financials/export`                    | `200` export   | Download the saved source snapshot as JSON |
+| `GET`    | `/api/v1/financials/export/csv`                | `200` CSV      | Download the saved source snapshot as CSV  |
+| `GET`    | `/api/v1/financials/export/xlsx`               | `200` XLSX     | Download the saved source snapshot as XLSX |
+| `POST`   | `/api/v1/financials/import/csv`                | `200` snapshot | Restore the full snapshot from CSV         |
+| `POST`   | `/api/v1/financials/import/xlsx`               | `200` snapshot | Restore the full snapshot from XLSX        |
+| `PUT`    | `/api/v1/financials`                           | `200` snapshot | Replace and return the complete snapshot   |
+| `POST`   | `/api/v1/financials/bills`                     | `201` bill     | Add one monthly bill immediately           |
+| `PUT`    | `/api/v1/financials/bills/{id}`                | `200` bill     | Replace one existing monthly bill          |
+| `DELETE` | `/api/v1/financials/bills/{id}`                | `204` empty    | Delete one existing monthly bill           |
+| `POST`   | `/api/v1/financials/annual-withdrawals`        | `201` record   | Add one annual withdrawal immediately      |
+| `PUT`    | `/api/v1/financials/annual-withdrawals/{id}`   | `200` record   | Replace one annual withdrawal              |
+| `DELETE` | `/api/v1/financials/annual-withdrawals/{id}`   | `204` empty    | Delete one annual withdrawal               |
+| `POST`   | `/api/v1/financials/asset-accounts`            | `201` record   | Add one asset account immediately          |
+| `PUT`    | `/api/v1/financials/asset-accounts/{id}`       | `200` record   | Replace one asset account                  |
+| `DELETE` | `/api/v1/financials/asset-accounts/{id}`       | `204` empty    | Delete one asset account                   |
+| `POST`   | `/api/v1/financials/debt-accounts`             | `201` record   | Add one debt account immediately           |
+| `PUT`    | `/api/v1/financials/debt-accounts/{id}`        | `200` record   | Replace one debt account                   |
+| `DELETE` | `/api/v1/financials/debt-accounts/{id}`        | `204` empty    | Delete one debt account                    |
+| `POST`   | `/api/v1/financials/income-summary-items`      | `201` record   | Add one income summary item immediately    |
+| `PUT`    | `/api/v1/financials/income-summary-items/{id}` | `200` record   | Replace one income summary item            |
+| `DELETE` | `/api/v1/financials/income-summary-items/{id}` | `204` empty    | Delete one income summary item             |
+| `POST`   | `/api/v1/financials/income-events`             | `201` record   | Add one income event immediately           |
+| `PUT`    | `/api/v1/financials/income-events/{id}`        | `200` record   | Replace one income event                   |
+| `DELETE` | `/api/v1/financials/income-events/{id}`        | `204` empty    | Delete one income event                    |
+| `POST`   | `/api/v1/financials/important-dates`           | `201` record   | Add one important date immediately         |
+| `PUT`    | `/api/v1/financials/important-dates/{id}`      | `200` record   | Replace one important date                 |
+| `DELETE` | `/api/v1/financials/important-dates/{id}`      | `204` empty    | Delete one important date                  |
+| `PUT`    | `/api/v1/financials/pay-period`                | `200` snapshot | Replace pay-period anchor dates            |
 
 The granular endpoints persist through the same aggregate store as the full
 snapshot. The current browser workspace primarily uses `GET` and full-snapshot
-`PUT`.
+`PUT`. ADR 0012 records the compatibility and concurrency tradeoffs for the
+granular record APIs.
 
 Every `GET /api/v1/financials` response includes the current snapshot
 `version`. Clients must echo that value in `PUT /api/v1/financials`. If another
@@ -113,7 +136,7 @@ Derived top-level values:
 - `totalDebt`: sum of debt balances
 - `netWorth`: tracked assets minus debt
 
-## Snapshot Export
+## Snapshot Export and Tabular Restore
 
 `GET /api/v1/financials/export` is a read-only backup endpoint. It returns an
 attachment with `Cache-Control: no-store` and a filename like
@@ -144,9 +167,39 @@ The response envelope is:
 IDs. It intentionally excludes calculated totals, labels, due dates,
 pay-period flags, monthly check counts, and projection-only fields.
 
-This endpoint does not import or restore data. Exports may contain personal
-financial data and must be handled like local profile files and database
-backups.
+CSV and XLSX use the same one-sheet tabular exchange format:
+
+```http
+GET /api/v1/financials/export/csv
+GET /api/v1/financials/export/xlsx
+POST /api/v1/financials/import/csv
+POST /api/v1/financials/import/xlsx
+```
+
+Downloads are attachments named like `financial-snapshot-v3.csv` or
+`financial-snapshot-v3.xlsx`, also with `Cache-Control: no-store`. Imports
+replace the complete saved snapshot through the same service path as
+`PUT /api/v1/financials`, so the imported `version` must match the current
+server version. Stale imports return `409 Conflict`; successful imports
+increment the snapshot version and return the calculated snapshot response.
+
+Tabular columns are fixed and must remain in this order:
+
+```text
+recordType,version,id,payPeriodStart,payPeriodEnd,bill,dueDay,month,day,amount,account,paid,categoryKey,categoryLabel,company,category,interval,date,label,event,type,checkNumber
+```
+
+The first data row must have `recordType` = `snapshot` and must provide
+`version`, `payPeriodStart`, and `payPeriodEnd`. Remaining rows use these
+record types: `bill`, `annualWithdrawal`, `assetAccount`, `debtAccount`,
+`incomeSummaryItem`, `incomeEvent`, and `importantDate`. Dates are ISO local
+dates (`YYYY-MM-DD`). Blank IDs are treated as new records during restore.
+XLSX imports read the first worksheet and expect the same columns; date cells
+should remain ISO text.
+
+Exports and import files may contain personal financial data and must be
+handled like local profile files and database backups. Do not commit them or
+store them in repository folders.
 
 ## Nested Types
 
@@ -283,6 +336,109 @@ Date, event, and type are required.
 
 An update or delete for an absent ID returns `404`.
 
+The same create/update/delete pattern applies to the other record collections.
+Requests omit `id`; creates assign a new positive ID, updates preserve the path
+ID, and absent update/delete IDs return `404`.
+
+### Create or update an annual withdrawal
+
+`POST /annual-withdrawals` and `PUT /annual-withdrawals/{id}`:
+
+```json
+{
+  "bill": "Synthetic annual fee",
+  "month": 12,
+  "day": 31,
+  "amount": 50.0,
+  "account": "Example checking",
+  "paid": false
+}
+```
+
+Responses use the annual-withdrawal response shape, including `dateLabel`,
+derived `dueDate`, and `inPayPeriod`.
+
+### Create or update an asset account
+
+`POST /asset-accounts` and `PUT /asset-accounts/{id}`:
+
+```json
+{
+  "categoryKey": "cash-savings",
+  "categoryLabel": "Cash & Savings",
+  "account": "Example savings",
+  "company": "Example institution",
+  "amount": 1000.0
+}
+```
+
+The granular asset-account response is flat so a single record can carry its
+category:
+
+```json
+{
+  "id": 10,
+  "categoryKey": "cash-savings",
+  "categoryLabel": "Cash & Savings",
+  "account": "Example savings",
+  "company": "Example institution",
+  "amount": 1000.0
+}
+```
+
+Snapshot responses remain grouped under `assetCategories`.
+
+### Create or update a debt account
+
+`POST /debt-accounts` and `PUT /debt-accounts/{id}`:
+
+```json
+{
+  "account": "Example card",
+  "company": "Example issuer",
+  "amount": 250.0
+}
+```
+
+### Create or update an income summary item
+
+`POST /income-summary-items` and `PUT /income-summary-items/{id}`:
+
+```json
+{
+  "category": "Net Income",
+  "interval": "Bi-Weekly",
+  "amount": 1500.0
+}
+```
+
+### Create or update an income event
+
+`POST /income-events` and `PUT /income-events/{id}`:
+
+```json
+{
+  "date": "2026-07-10",
+  "label": "Synthetic paycheck",
+  "type": "Paycheck",
+  "checkNumber": 1
+}
+```
+
+Responses include `checksInMonth`, recalculated after the write.
+
+### Create or update an important date
+
+`POST /important-dates` and `PUT /important-dates/{id}`:
+
+```json
+{
+  "date": "2026-12-31",
+  "event": "Synthetic reminder",
+  "type": "Reminder"
+}
+```
+
 ### Update pay-period anchors
 
 ```json
@@ -331,7 +487,7 @@ and reason, including:
 
 - `400` when pay-period end precedes start
 - `409` when a full snapshot save uses a stale `version`
-- `404` when a granular bill update/delete ID is absent
+- `404` when a granular record update/delete ID is absent
 
 An `IllegalStateException` while processing persistence is converted to `500`
 with title `Persistence failure` and generic detail. Internal financial data

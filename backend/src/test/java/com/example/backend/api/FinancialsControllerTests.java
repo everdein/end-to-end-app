@@ -10,11 +10,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.backend.dto.financials.AssetAccountRecordResponse;
+import com.example.backend.dto.financials.AssetAccountRequest;
 import com.example.backend.dto.financials.ExpenseBillSnapshotRequest;
 import com.example.backend.dto.financials.ExpenseSnapshotRequest;
+import com.example.backend.dto.financials.ExpenseSnapshotResponse;
 import com.example.backend.dto.financials.FinancialSnapshotExportResponse;
+import com.example.backend.dto.financials.FinancialSnapshotFileExport;
 import com.example.backend.service.FinancialsService;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -85,6 +90,64 @@ class FinancialsControllerTests {
   }
 
   @Test
+  void createsAssetAccountThroughGranularEndpoint() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(
+            post("/api/v1/financials/asset-accounts")
+                .contentType("application/json")
+                .content(
+                    """
+                        {
+                          "categoryKey": "cash-savings",
+                          "categoryLabel": "Cash & Savings",
+                          "account": "Vacation",
+                          "company": "Credit Union",
+                          "amount": 900
+                        }
+                        """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.id").value(42))
+        .andExpect(jsonPath("$.categoryKey").value("cash-savings"))
+        .andExpect(jsonPath("$.account").value("Vacation"));
+  }
+
+  @Test
+  void rejectsInvalidAnnualWithdrawalRequestWithProblemDetails() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(
+            post("/api/v1/financials/annual-withdrawals")
+                .contentType("application/json")
+                .content(
+                    """
+                        {
+                          "bill": "",
+                          "month": 13,
+                          "day": 32,
+                          "amount": -1,
+                          "account": "",
+                          "paid": false
+                        }
+                        """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title").value("Invalid request"))
+        .andExpect(jsonPath("$.errors").isArray());
+  }
+
+  @Test
+  void mapsMissingGranularRecordToProblemDetails() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(delete("/api/v1/financials/important-dates/99"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.detail").value("Important date not found"));
+  }
+
+  @Test
   void rejectsSnapshotSaveWithoutVersion() throws Exception {
     MockMvc mockMvc = mockMvc(new TestFinancialsService());
 
@@ -132,6 +195,57 @@ class FinancialsControllerTests {
         .andExpect(jsonPath("$.snapshot.bills[0].dueLabel").doesNotExist());
   }
 
+  @Test
+  void exportsSnapshotAsCsvAttachment() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(get("/api/v1/financials/export/csv"))
+        .andExpect(status().isOk())
+        .andExpect(content().contentTypeCompatibleWith("text/csv"))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+        .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("attachment")))
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CONTENT_DISPOSITION, containsString("financial-snapshot-v7.csv")))
+        .andExpect(content().string(containsString("recordType,version,id")))
+        .andExpect(content().string(containsString("bill,,1,,,Rent,1")));
+  }
+
+  @Test
+  void exportsSnapshotAsXlsxAttachment() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(get("/api/v1/financials/export/xlsx"))
+        .andExpect(status().isOk())
+        .andExpect(
+            content()
+                .contentTypeCompatibleWith(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+        .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("attachment")))
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.CONTENT_DISPOSITION, containsString("financial-snapshot-v7.xlsx")))
+        .andExpect(content().bytes(new byte[] {(byte) 'P', (byte) 'K'}));
+  }
+
+  @Test
+  void importsSnapshotCsv() throws Exception {
+    MockMvc mockMvc = mockMvc(new TestFinancialsService());
+
+    mockMvc
+        .perform(
+            post("/api/v1/financials/import/csv")
+                .contentType("text/csv")
+                .content("recordType,version,id,payPeriodStart,payPeriodEnd\n"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.version").value(8));
+  }
+
   private MockMvc mockMvc(FinancialsService financialsService) {
     LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
     validator.afterPropertiesSet();
@@ -153,6 +267,22 @@ class FinancialsControllerTests {
     }
 
     @Override
+    public AssetAccountRecordResponse addAssetAccount(AssetAccountRequest request) {
+      return new AssetAccountRecordResponse(
+          42,
+          request.categoryKey(),
+          request.categoryLabel(),
+          request.account(),
+          request.company(),
+          request.amount());
+    }
+
+    @Override
+    public void deleteImportantDate(long id) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Important date not found");
+    }
+
+    @Override
     public FinancialSnapshotExportResponse exportSnapshot() {
       return new FinancialSnapshotExportResponse(
           "end-to-end-app.financial-snapshot.v1",
@@ -170,6 +300,52 @@ class FinancialsControllerTests {
               List.of(),
               List.of(),
               List.of()));
+    }
+
+    @Override
+    public FinancialSnapshotFileExport exportSnapshotCsv() {
+      return new FinancialSnapshotFileExport(
+          7,
+          "recordType,version,id,payPeriodStart,payPeriodEnd,bill,dueDay\nbill,,1,,,Rent,1\n"
+              .getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public FinancialSnapshotFileExport exportSnapshotXlsx() {
+      return new FinancialSnapshotFileExport(7, new byte[] {(byte) 'P', (byte) 'K'});
+    }
+
+    @Override
+    public ExpenseSnapshotResponse importSnapshotCsv(String csv) {
+      return emptySnapshotResponse(8);
+    }
+
+    @Override
+    public ExpenseSnapshotResponse importSnapshotXlsx(byte[] workbook) {
+      return emptySnapshotResponse(8);
+    }
+
+    private ExpenseSnapshotResponse emptySnapshotResponse(long version) {
+      return new ExpenseSnapshotResponse(
+          version,
+          LocalDate.of(2026, 7, 1),
+          LocalDate.of(2026, 7, 14),
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          BigDecimal.ZERO,
+          List.of(),
+          List.of(),
+          List.of(),
+          List.of(),
+          List.of(),
+          List.of(),
+          List.of());
     }
   }
 }
