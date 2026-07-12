@@ -26,5 +26,6 @@ description: Review the end-to-end-app repository, pull requests, or change sets
    Then report assumptions, skipped checks, and residual risk. If there are no
    findings, say so explicitly.
 
-Treat the V1 normalized tables as inactive groundwork unless code proves
-otherwise. Do not infer that an authenticated Snyk scan passed from `npm audit`.
+Treat the V1 normalized tables as inactive historical groundwork; ADR 0009 keeps
+them out of the runtime relational adapter path. Do not infer that an
+authenticated Snyk scan passed from `npm audit`.

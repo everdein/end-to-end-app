@@ -481,8 +481,10 @@ The active repository implementation reads and writes only
 `financial_snapshot_document`. The normalized V1 tables
 (`financial_snapshot`, `monthly_withdrawal`, `annual_withdrawal`,
 `asset_account`, `debt_account`, `income_summary_item`, `income_event`, and
-`important_date`) are present as relational schema groundwork for a later
-granular persistence path. They may remain empty in a healthy local database.
+`important_date`) are inactive historical groundwork. They are not the planned
+runtime relational adapter path as-is and may remain empty in a healthy local
+database. Future relational persistence should use a new additive migration
+path with explicit migration/backfill and parity testing.
 
 The local `financial_app_user` account is intentionally write-capable because
 it is the backend application user. For read-only inspection, use `SELECT`
@@ -525,7 +527,20 @@ PUT /api/v1/financials
 ```
 
 Persists the full edited financial snapshot in one request. This is the main
-endpoint used by the frontend draft/save workflow.
+endpoint used by the frontend draft/save workflow. The request must include the
+current `version` returned by `GET /api/v1/financials`; stale versions return
+`409 Conflict`.
+
+### Export saved snapshot backup
+
+```http
+GET /api/v1/financials/export
+```
+
+Downloads the saved source snapshot as a JSON attachment with `Cache-Control:
+no-store`. The response includes `format`, `exportedAt`, and a `snapshot` object
+that mirrors the full-snapshot save request shape. It is a manual backup export,
+not an import/restore workflow.
 
 ### Granular bill endpoints
 
@@ -665,9 +680,9 @@ projects them into the active pay period year so they can be displayed as
 `MM/DD/YYYY` and included in pay period planning.
 
 The persisted snapshot currently includes monthly bills, annual withdrawals,
-asset accounts, debt accounts, the bi-weekly net income source item, income
-calendar events, and important dates. Derived income summary rows are calculated
-by the frontend.
+asset accounts, debt accounts, income summary source items, income calendar
+events, and important dates. Derived income summary rows are calculated by the
+frontend.
 
 The default mode stores this aggregate in a local JSON file. The `postgres`
 profile stores the same aggregate as a PostgreSQL `jsonb` document until the
@@ -882,7 +897,8 @@ Intentional simplifications:
 
 - JSON remains the default local fallback
 - PostgreSQL stores the full snapshot as `jsonb`; granular database-backed CRUD
-  is not implemented yet
+  is not implemented yet and should use a new relational migration path rather
+  than activating the V1 tables as-is
 - no authentication
 - no authorization
 - no external APIs

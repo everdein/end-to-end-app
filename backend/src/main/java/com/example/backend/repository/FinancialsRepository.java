@@ -28,6 +28,7 @@ public class FinancialsRepository {
   private final List<ImportantDate> importantDates = new ArrayList<>();
   private LocalDate payPeriodStart = LocalDate.now().withDayOfMonth(1);
   private LocalDate payPeriodEnd = LocalDate.now().withDayOfMonth(15);
+  private long version = 1;
 
   public FinancialsRepository(FinancialsSnapshotStore snapshotStore) {
     this.snapshotStore = snapshotStore;
@@ -70,6 +71,24 @@ public class FinancialsRepository {
     return importantDates.stream().sorted(Comparator.comparing(ImportantDate::date)).toList();
   }
 
+  public synchronized long version() {
+    return version;
+  }
+
+  public synchronized FinancialsData currentSnapshotData() {
+    return new FinancialsData(
+        version,
+        payPeriodStart,
+        payPeriodEnd,
+        List.copyOf(bills),
+        List.copyOf(annualWithdrawals),
+        List.copyOf(assetAccounts),
+        List.copyOf(debtAccounts),
+        List.copyOf(incomeSummaryItems),
+        List.copyOf(incomeEvents),
+        List.copyOf(importantDates));
+  }
+
   public synchronized ExpenseBill addBill(ExpenseBill bill) {
     ExpenseBill created = bill.withId(nextId.getAndIncrement());
     bills.add(created);
@@ -99,6 +118,7 @@ public class FinancialsRepository {
   }
 
   public synchronized void replaceSnapshot(
+      long expectedVersion,
       LocalDate startDate,
       LocalDate endDate,
       List<ExpenseBill> replacementBills,
@@ -108,6 +128,10 @@ public class FinancialsRepository {
       List<IncomeSummaryItem> replacementIncomeSummaryItems,
       List<IncomeEvent> replacementIncomeEvents,
       List<ImportantDate> replacementImportantDates) {
+    if (expectedVersion != version) {
+      throw new SnapshotVersionConflictException(expectedVersion, version);
+    }
+
     bills.clear();
     for (ExpenseBill bill : replacementBills) {
       long id = bill.id() > 0 ? bill.id() : nextId.getAndIncrement();
@@ -181,6 +205,7 @@ public class FinancialsRepository {
 
   private void load() {
     FinancialsData data = snapshotStore.load();
+    version = data.version();
     payPeriodStart = data.payPeriodStart();
     payPeriodEnd = data.payPeriodEnd();
     bills.clear();
@@ -201,8 +226,10 @@ public class FinancialsRepository {
   }
 
   private void persist() {
+    version += 1;
     snapshotStore.save(
         new FinancialsData(
+            version,
             payPeriodStart,
             payPeriodEnd,
             bills,

@@ -96,15 +96,15 @@ environment.
 | --------------- | -------------------------------------------- |
 | `id`            | Database identity                            |
 | `active`        | Marks the current document                   |
-| `version`       | Increments on every successful update        |
+| `version`       | Current optimistic-concurrency version       |
 | `snapshot_json` | Complete `FinancialsData` aggregate as JSONB |
 | `created_at`    | Row creation timestamp                       |
 | `updated_at`    | Latest update timestamp                      |
 
 A partial unique index allows at most one row where `active = true`. The store
-loads the first active row, updates every active row in one statement, and
-inserts version 1 when no active row exists. Version is storage metadata and is
-not exposed as an optimistic-concurrency token.
+loads the first active row, mirrors the row version into `FinancialsData`, and
+writes the repository-assigned next version on save. The API exposes that
+version as the optimistic-concurrency token for full-snapshot saves.
 
 ### Empty-database seed order
 
@@ -131,10 +131,15 @@ V1 creates:
 - `income_event`
 - `important_date`
 
-These tables are inactive relational groundwork. The current application does
-not read or write them, so zero rows is expected even when the document table
-contains an active snapshot. Do not dual-write or backfill them without a new
-architectural decision, migration plan, and parity tests.
+These tables are inactive historical groundwork. ADR 0009 decides they should
+not become the active relational persistence path as-is. The current
+application does not read or write them, so zero rows is expected even when the
+document table contains an active snapshot.
+
+Do not dual-write, backfill, query, or repair through the V1 tables. Future
+relational persistence should use a new additive migration path with explicit
+JSON-to-relational migration/backfill steps, parity tests, and rollback/export
+planning.
 
 ## PostgreSQL Roles
 
@@ -243,13 +248,24 @@ problem.
 
 ## Backup, Restore, and Migration
 
-There is no automated PostgreSQL backup or cross-profile migration command.
+The application exposes a manual snapshot export:
+
+```http
+GET /api/v1/financials/export
+```
+
+The export is a JSON attachment whose `snapshot` field mirrors the
+full-snapshot save request shape. It is useful as a portable, source-shaped
+copy of the currently saved aggregate, but it is not an automated backup
+schedule, import command, restore workflow, PostgreSQL dump, or cross-profile
+migration tool.
 
 - Before risky JSON changes, copy both `.local.json` and `.bak` to a protected
   location outside the repository.
 - Before PostgreSQL changes, use administrator-approved database-native backup
   tooling and verify restoration on a separate target.
 - Treat backups and exports as personal financial data.
+- Do not commit downloaded exports or store them in repository folders.
 - Do not overwrite either profile implicitly to “synchronize” them.
 - When deliberately moving JSON data into an empty PostgreSQL database, verify
   the source file, take backups, start the profile once, and inspect only

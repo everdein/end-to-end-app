@@ -149,12 +149,25 @@ button {
   padding: 9px 12px;
 }
 
+.button-link {
+  background: #17365d;
+  border: 1px solid #17365d;
+  border-radius: 6px;
+  color: #ffffff;
+  display: inline-block;
+  font: inherit;
+  font-weight: 700;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.65;
 }
 
-button.ghost {
+button.ghost,
+.button-link.ghost {
   background: #ffffff;
   color: #17365d;
 }
@@ -286,6 +299,11 @@ button.danger {
   display: grid;
   gap: 20px;
   grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.side-forms {
+  display: grid;
+  gap: 20px;
 }
 
 .debt-progress-card,
@@ -613,6 +631,7 @@ tr.projection-row.neutral td {
 .withdrawals-table th:nth-child(3),
 .account-table th:nth-child(3),
 .income-summary-table th:nth-child(2),
+.income-source-table th:nth-child(3),
 .overview-table th:nth-child(3),
 .projection-detail-table th:nth-child(2) {
   text-align: right;

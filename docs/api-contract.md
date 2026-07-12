@@ -7,7 +7,7 @@
 - Dates: ISO local dates (`YYYY-MM-DD`), without time zone
 - Money: JSON decimal numbers mapped to Java `BigDecimal`
 - Authentication/authorization: none
-- Concurrency: last write wins; no ETag or request version
+- Concurrency: full-snapshot `PUT` requests use an optimistic `version` token
 - Primary UI save boundary: the complete financial snapshot
 
 This document describes the current contract. Backend DTO records and
@@ -15,18 +15,24 @@ controller annotations remain authoritative.
 
 ## Endpoints
 
-| Method   | Path                            | Success        | Purpose                                  |
-| -------- | ------------------------------- | -------------- | ---------------------------------------- |
-| `GET`    | `/api/v1/financials`            | `200` snapshot | Load the calculated current workspace    |
-| `PUT`    | `/api/v1/financials`            | `200` snapshot | Replace and return the complete snapshot |
-| `POST`   | `/api/v1/financials/bills`      | `201` bill     | Add one monthly bill immediately         |
-| `PUT`    | `/api/v1/financials/bills/{id}` | `200` bill     | Replace one existing monthly bill        |
-| `DELETE` | `/api/v1/financials/bills/{id}` | `204` empty    | Delete one existing monthly bill         |
-| `PUT`    | `/api/v1/financials/pay-period` | `200` snapshot | Replace pay-period anchor dates          |
+| Method   | Path                            | Success        | Purpose                                    |
+| -------- | ------------------------------- | -------------- | ------------------------------------------ |
+| `GET`    | `/api/v1/financials`            | `200` snapshot | Load the calculated current workspace      |
+| `GET`    | `/api/v1/financials/export`     | `200` export   | Download the saved source snapshot as JSON |
+| `PUT`    | `/api/v1/financials`            | `200` snapshot | Replace and return the complete snapshot   |
+| `POST`   | `/api/v1/financials/bills`      | `201` bill     | Add one monthly bill immediately           |
+| `PUT`    | `/api/v1/financials/bills/{id}` | `200` bill     | Replace one existing monthly bill          |
+| `DELETE` | `/api/v1/financials/bills/{id}` | `204` empty    | Delete one existing monthly bill           |
+| `PUT`    | `/api/v1/financials/pay-period` | `200` snapshot | Replace pay-period anchor dates            |
 
 The granular endpoints persist through the same aggregate store as the full
 snapshot. The current browser workspace primarily uses `GET` and full-snapshot
 `PUT`.
+
+Every `GET /api/v1/financials` response includes the current snapshot
+`version`. Clients must echo that value in `PUT /api/v1/financials`. If another
+write has committed first, the backend rejects the stale save with `409
+Conflict` and leaves the newer snapshot intact.
 
 ## Complete Snapshot
 
@@ -34,6 +40,7 @@ snapshot. The current browser workspace primarily uses `GET` and full-snapshot
 
 ```json
 {
+  "version": 1,
   "payPeriodStart": "2026-07-01",
   "payPeriodEnd": "2026-07-14",
   "bills": [],
@@ -48,6 +55,7 @@ snapshot. The current browser workspace primarily uses `GET` and full-snapshot
 
 | Field                | Required | Meaning                                            |
 | -------------------- | -------- | -------------------------------------------------- |
+| `version`            | Yes      | Current snapshot version returned by the last GET  |
 | `payPeriodStart`     | Yes      | Stored pay-period anchor start                     |
 | `payPeriodEnd`       | Yes      | Stored pay-period anchor end; cannot precede start |
 | `bills`              | Yes      | Monthly bill source records                        |
@@ -58,14 +66,16 @@ snapshot. The current browser workspace primarily uses `GET` and full-snapshot
 | `incomeEvents`       | Yes      | Dated income-calendar source records               |
 | `importantDates`     | Yes      | Dated event source records                         |
 
-`PUT /api/v1/financials` replaces every persisted collection. Omitting an
-optional collection therefore clears it; omitting a required collection yields
-`400`. Derived response fields are not request fields.
+`PUT /api/v1/financials` replaces every persisted collection after the supplied
+`version` matches the current server version. Omitting an optional collection
+therefore clears it; omitting a required collection yields `400`. Derived
+response fields are not request fields.
 
 ### Response
 
 ```json
 {
+  "version": 1,
   "payPeriodStart": "2026-07-01",
   "payPeriodEnd": "2026-07-14",
   "totalMonthlyExpenses": 0,
@@ -102,6 +112,41 @@ Derived top-level values:
 - `totalTrackedAssets`: sum of asset-category totals
 - `totalDebt`: sum of debt balances
 - `netWorth`: tracked assets minus debt
+
+## Snapshot Export
+
+`GET /api/v1/financials/export` is a read-only backup endpoint. It returns an
+attachment with `Cache-Control: no-store` and a filename like
+`financial-snapshot-v3.json`.
+
+The response envelope is:
+
+```json
+{
+  "format": "end-to-end-app.financial-snapshot.v1",
+  "exportedAt": "2026-07-11T10:15:30Z",
+  "snapshot": {
+    "version": 3,
+    "payPeriodStart": "2026-07-01",
+    "payPeriodEnd": "2026-07-14",
+    "bills": [],
+    "annualWithdrawals": [],
+    "assetCategories": [],
+    "debtAccounts": [],
+    "incomeSummaryItems": [],
+    "incomeEvents": [],
+    "importantDates": []
+  }
+}
+```
+
+`snapshot` mirrors the full-snapshot request shape and preserves saved source
+IDs. It intentionally excludes calculated totals, labels, due dates,
+pay-period flags, monthly check counts, and projection-only fields.
+
+This endpoint does not import or restore data. Exports may contain personal
+financial data and must be handled like local profile files and database
+backups.
 
 ## Nested Types
 
@@ -285,6 +330,7 @@ Service-generated `ResponseStatusException` errors preserve their HTTP status
 and reason, including:
 
 - `400` when pay-period end precedes start
+- `409` when a full snapshot save uses a stale `version`
 - `404` when a granular bill update/delete ID is absent
 
 An `IllegalStateException` while processing persistence is converted to `500`
@@ -295,6 +341,8 @@ and implementation exceptions must not be added to public error details.
 
 - Keep frontend endpoint types and backend DTOs aligned.
 - Treat fields removed from a full-snapshot request as deleted persisted data.
+- Treat the snapshot `version` as an API concurrency token. Full-snapshot save
+  clients must reload after `409 Conflict` before retrying.
 - Do not add derived response fields to persistence without an explicit
   contract decision.
 - Preserve decimal precision through the backend; JavaScript consumers still

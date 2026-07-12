@@ -131,9 +131,11 @@ code failure.
 2. Check whether the response is validation (`400`), missing granular ID
    (`404`), or persistence (`500`).
 3. Compare request field names with `docs/api-contract.md`.
-4. Remember that a full snapshot save replaces every collection.
-5. If another tab/client may have saved, treat it as a last-write-wins conflict;
-   there is no concurrency token.
+4. Remember that a full snapshot save replaces every collection after its
+   version check passes.
+5. If the response is `409`, another tab/client saved first. Reload the
+   snapshot, review the local draft against the newer server state, and save
+   again only after deciding the overwrite is intentional.
 
 ## 3. Backend Startup or API Failure
 
@@ -243,8 +245,10 @@ an empty snapshot. Confirm and back up the intended source before startup.
 
 ### Normalized tables are empty
 
-Expected. They are inactive V1 groundwork. The active data is the JSONB
-document row. Do not backfill normalized tables as a troubleshooting step.
+Expected. They are inactive V1 historical groundwork. The active data is the
+JSONB document row. Do not backfill normalized tables as a troubleshooting
+step; ADR 0009 requires a new additive migration path for future relational
+persistence.
 
 ### More than one active document or unexpected version changes
 

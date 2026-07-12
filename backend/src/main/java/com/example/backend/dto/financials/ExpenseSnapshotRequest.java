@@ -2,10 +2,14 @@ package com.example.backend.dto.financials;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
 import java.util.List;
 
 public record ExpenseSnapshotRequest(
+    @NotNull(message = "Snapshot version is required")
+        @Positive(message = "Snapshot version must be positive")
+        Long version,
     @NotNull(message = "Pay period start date is required") LocalDate payPeriodStart,
     @NotNull(message = "Pay period end date is required") LocalDate payPeriodEnd,
     @NotNull(message = "Bills are required") List<@Valid ExpenseBillSnapshotRequest> bills,

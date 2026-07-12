@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.backend.dto.financials.AnnualWithdrawalSnapshotRequest;
 import com.example.backend.dto.financials.AssetAccountSnapshotRequest;
@@ -26,6 +27,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import tools.jackson.databind.ObjectMapper;
 
 class FinancialsServiceTests {
@@ -38,6 +41,7 @@ class FinancialsServiceTests {
 
     var snapshot = service.getSnapshot();
 
+    assertThat(snapshot.version()).isEqualTo(1);
     assertThat(snapshot.totalMonthlyExpenses()).isEqualByComparingTo("1450.00");
     assertThat(snapshot.totalAnnualWithdrawals()).isEqualByComparingTo("99.00");
     assertThat(snapshot.totalTrackedAssets()).isEqualByComparingTo("15000.00");
@@ -60,6 +64,30 @@ class FinancialsServiceTests {
     assertThat(snapshot.incomeSummaryItems())
         .anyMatch(
             (item) -> item.category().equals("Net Income") && item.interval().equals("Bi-Weekly"));
+  }
+
+  @Test
+  void exportsSourceSnapshotForBackup() throws IOException {
+    Clock clock = Clock.fixed(Instant.parse("2026-07-11T10:15:30Z"), ZoneOffset.UTC);
+    FinancialsService service = new FinancialsService(repository(), clock);
+
+    var backup = service.exportSnapshot();
+
+    assertThat(backup.format()).isEqualTo("end-to-end-app.financial-snapshot.v1");
+    assertThat(backup.exportedAt()).isEqualTo(Instant.parse("2026-07-11T10:15:30Z"));
+    assertThat(backup.snapshot().version()).isEqualTo(1);
+    assertThat(backup.snapshot().payPeriodStart()).isEqualTo(LocalDate.of(2026, 1, 1));
+    assertThat(backup.snapshot().payPeriodEnd()).isEqualTo(LocalDate.of(2026, 1, 15));
+    assertThat(backup.snapshot().bills())
+        .anyMatch((bill) -> bill.id() == 1L && bill.bill().equals("Example Rent"));
+    assertThat(backup.snapshot().assetCategories())
+        .anyMatch(
+            (category) ->
+                category.key().equals("cash-savings")
+                    && category.accounts().stream()
+                        .anyMatch((account) -> account.account().equals("Emergency Fund")));
+    assertThat(backup.snapshot().incomeEvents())
+        .anyMatch((event) -> event.label().equals("Paycheck") && event.checkNumber() == 1);
   }
 
   @Test
@@ -113,10 +141,12 @@ class FinancialsServiceTests {
   @Test
   void savesSnapshotInOneBatch() throws IOException {
     FinancialsService service = new FinancialsService(repository());
+    long loadedVersion = service.getSnapshot().version();
 
     var saved =
         service.saveSnapshot(
             new ExpenseSnapshotRequest(
+                loadedVersion,
                 LocalDate.of(2026, 6, 12),
                 LocalDate.of(2026, 6, 26),
                 List.of(
@@ -150,6 +180,7 @@ class FinancialsServiceTests {
                     new ImportantDateSnapshotRequest(
                         null, LocalDate.of(2026, 12, 25), "Christmas", "Holiday"))));
 
+    assertThat(saved.version()).isEqualTo(loadedVersion + 1);
     assertThat(saved.bills()).hasSize(2);
     assertThat(saved.bills()).anyMatch((bill) -> bill.bill().equals("Rent"));
     assertThat(saved.annualWithdrawals()).hasSize(1);
@@ -178,6 +209,36 @@ class FinancialsServiceTests {
     assertThat(Files.exists(tempDir.resolve("financials.local.json.bak"))).isTrue();
   }
 
+  @Test
+  void rejectsStaleSnapshotVersion() throws IOException {
+    FinancialsService service = new FinancialsService(repository());
+    long staleVersion = service.getSnapshot().version();
+
+    service.addBill(new ExpenseBillRequest("Concurrent Bill", 9, money("10"), "Check", false));
+
+    assertThatThrownBy(
+            () ->
+                service.saveSnapshot(
+                    new ExpenseSnapshotRequest(
+                        staleVersion,
+                        LocalDate.of(2026, 6, 12),
+                        LocalDate.of(2026, 6, 26),
+                        List.of(
+                            new ExpenseBillSnapshotRequest(
+                                1L, "Rent", 1, money("2600"), "Check", true)),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of())))
+        .isInstanceOf(ResponseStatusException.class)
+        .satisfies(
+            (exception) ->
+                assertThat(((ResponseStatusException) exception).getStatusCode())
+                    .isEqualTo(HttpStatus.CONFLICT));
+  }
+
   private FinancialsRepository repository() throws IOException {
     Path dataPath = tempDir.resolve("financials.local.json");
     Path examplePath = tempDir.resolve("financials.example.json");
@@ -185,6 +246,7 @@ class FinancialsServiceTests {
         examplePath,
         """
         {
+          "version": 1,
           "payPeriodStart": "2026-01-01",
           "payPeriodEnd": "2026-01-15",
           "bills": [

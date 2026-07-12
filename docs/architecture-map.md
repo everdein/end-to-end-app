@@ -20,8 +20,9 @@ flowchart LR
     Example -. "fallback seed" .-> PG
 ```
 
-There is no authentication, multi-user isolation, production deployment, or
-conflict detection. Saves are whole-snapshot, last-write-wins operations.
+There is no authentication, multi-user isolation, or production deployment.
+Full-snapshot saves use optimistic version checks; granular bill and pay-period
+routes still mutate the single aggregate immediately.
 
 ## Frontend
 
@@ -41,9 +42,10 @@ conflict detection. Saves are whole-snapshot, last-write-wins operations.
 The Redux slice owns the last server snapshot and request status.
 `FinancialsPage` expands that snapshot into component-local draft collections.
 Unsaved edits stay in the browser until `buildExpenseSnapshotRequest` produces
-the full `PUT /api/v1/financials` payload. A successful save replaces the Redux
-snapshot with the server response; a failed save preserves the draft and
-surfaces the error.
+the full `PUT /api/v1/financials` payload, including the snapshot `version`
+last returned by the backend. A successful save replaces the Redux snapshot
+with the server response; a failed save preserves the draft and surfaces the
+error.
 
 Local development uses Vite on port `3000`; `/api` is proxied to the backend on
 port `8080`.
@@ -77,20 +79,22 @@ save boundary.
 
 ## Persistence Profiles
 
-| Concern            | JSON profile                                        | PostgreSQL profile                                      |
-| ------------------ | --------------------------------------------------- | ------------------------------------------------------- |
-| Activation         | Default profile                                     | `SPRING_PROFILES_ACTIVE=postgres`                       |
-| Adapter            | `JsonFinancialsSnapshotStore`                       | `PostgresFinancialsSnapshotStore`                       |
-| Active data        | `backend/data/financials.local.json`                | `financial_snapshot_document.snapshot_json`             |
-| Seed source        | `financials.example.json` when local file is absent | Local JSON, then example JSON when no active row exists |
-| Schema             | None                                                | Flyway migrations under `db/migration/`                 |
-| Local verification | Standard backend tests                              | Opt-in isolated-schema integration test                 |
+| Concern            | JSON profile                                        | PostgreSQL profile                                       |
+| ------------------ | --------------------------------------------------- | -------------------------------------------------------- |
+| Activation         | Default profile                                     | `SPRING_PROFILES_ACTIVE=postgres`                        |
+| Adapter            | `JsonFinancialsSnapshotStore`                       | `PostgresFinancialsSnapshotStore`                        |
+| Active data        | `backend/data/financials.local.json` with version   | `financial_snapshot_document.snapshot_json` plus version |
+| Seed source        | `financials.example.json` when local file is absent | Local JSON, then example JSON when no active row exists  |
+| Schema             | None                                                | Flyway migrations under `db/migration/`                  |
+| Local verification | Standard backend tests                              | Opt-in isolated-schema integration test                  |
 
-`V1__create_financials_schema.sql` defines normalized tables as future
-groundwork. They are not read or written by the active adapter and may remain
-empty. `V2__create_financial_snapshot_document.sql` defines the active JSONB
-document store. The application role is write-capable; inspection integrations
-should use a separate read-only role.
+`V1__create_financials_schema.sql` defines normalized tables that remain
+inactive historical groundwork. ADR 0009 decides they should not become the
+active relational persistence path as-is, and they may remain empty.
+`V2__create_financial_snapshot_document.sql` defines the active JSONB document
+store. Future relational persistence should use a new additive migration path.
+The application role is write-capable; inspection integrations should use a
+separate read-only role.
 
 ## Snapshot Request Flow
 
@@ -110,16 +114,21 @@ sequenceDiagram
     API->>Domain: getSnapshot()
     Domain->>Repo: read aggregate collections
     Repo-->>Domain: stored records
-    Domain-->>Page: calculated response through API/Redux
+    Domain-->>Page: calculated response with version through API/Redux
     Page->>Page: create and edit local draft
-    Page->>Redux: dispatch saveExpenseSnapshot(full request)
+    Page->>Redux: dispatch saveExpenseSnapshot(full request + version)
     Redux->>Client: PUT /api/v1/financials
     Client->>API: validated snapshot request
     API->>Domain: saveSnapshot()
-    Domain->>Repo: replaceSnapshot(...)
-    Repo->>Store: save(FinancialsData)
-    Store-->>Repo: persistence complete
-    Domain-->>Page: recalculated response through API/Redux
+    Domain->>Repo: replaceSnapshot(expectedVersion, ...)
+    alt version is stale
+        Repo-->>Domain: SnapshotVersionConflictException
+        Domain-->>Page: 409 Conflict through API/Redux
+    else version matches
+        Repo->>Store: save(FinancialsData with incremented version)
+        Store-->>Repo: persistence complete
+        Domain-->>Page: recalculated response with next version through API/Redux
+    end
 ```
 
 Derived totals are returned by the backend and are not accepted as persisted

@@ -18,7 +18,8 @@ subproject README before changing frontend, backend, database, or CI behavior.
 The application edits and saves one financial snapshot aggregate. The default
 profile stores local JSON. The `postgres` profile stores that aggregate in
 `financial_snapshot_document.snapshot_json`. The V1 normalized tables are
-schema groundwork and are not the active persistence path.
+inactive historical groundwork and are not the active or planned runtime
+persistence path as-is.
 
 ## Directory Ownership
 
@@ -157,10 +158,12 @@ or security policy from a packet alone.
 ## Intentional Limitations
 
 - There is no authentication, authorization, production deployment
-  infrastructure, external API integration, or multi-user conflict handling.
-- Saves replace one complete snapshot; concurrency is last-write-wins.
+  infrastructure, or external API integration.
+- Full-snapshot saves use optimistic version checks; granular endpoints still
+  mutate immediately without client-supplied aggregate versions.
 - PostgreSQL persists one JSONB snapshot. V1 normalized tables are inactive
-  groundwork and may remain empty.
+  historical groundwork and may remain empty; future relational persistence
+  should use a new additive migration path.
 - JSON is the default local profile. PostgreSQL setup and integration tests are
   opt-in.
 - The deploy workflow is a manual placeholder, not a production release path.

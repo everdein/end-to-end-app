@@ -1,12 +1,32 @@
+async function responseErrorMessage(res: Response): Promise<string> {
+  const text = await res.text().catch(() => '');
+
+  if (!text) {
+    return `HTTP ${res.status} ${res.statusText}`;
+  }
+
+  try {
+    const problem = JSON.parse(text) as { detail?: unknown; title?: unknown };
+    const detail = typeof problem.detail === 'string' ? problem.detail : undefined;
+    const title = typeof problem.title === 'string' ? problem.title : undefined;
+    return `HTTP ${res.status} ${res.statusText}: ${detail ?? title ?? text}`;
+  } catch {
+    return `HTTP ${res.status} ${res.statusText}: ${text}`;
+  }
+}
+
+async function assertOk(res: Response): Promise<void> {
+  if (!res.ok) {
+    throw new Error(await responseErrorMessage(res));
+  }
+}
+
 export async function httpGet<T>(url: string): Promise<T> {
   const res = await fetch(url, {
     headers: { 'content-type': 'application/json' },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
+  await assertOk(res);
 
   return (await res.json()) as T;
 }
@@ -18,10 +38,7 @@ export async function httpPost<T, B = unknown>(url: string, body: B): Promise<T>
     body: JSON.stringify(body as unknown),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
+  await assertOk(res);
 
   return (await res.json()) as T;
 }
@@ -33,10 +50,7 @@ export async function httpPut<T, B = unknown>(url: string, body: B): Promise<T> 
     body: JSON.stringify(body as unknown),
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
+  await assertOk(res);
 
   return (await res.json()) as T;
 }
@@ -47,8 +61,5 @@ export async function httpDelete(url: string): Promise<void> {
     headers: { 'content-type': 'application/json' },
   });
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
+  await assertOk(res);
 }

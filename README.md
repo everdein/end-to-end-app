@@ -187,8 +187,8 @@ a frontend login user.
 
 Current implementation note: the active PostgreSQL persistence path stores the
 whole financial snapshot in `financial_snapshot_document.snapshot_json`. The
-normalized V1 tables also exist as a relational schema foundation, but they are
-not populated by the current repository implementation.
+normalized V1 tables also exist, but ADR 0009 keeps them inactive rather than
+using them as the runtime relational adapter path.
 
 ---
 
@@ -372,8 +372,9 @@ A count of `0` in `financial_snapshot_document` is acceptable on a fresh
 database. The backend can seed the first snapshot from local JSON data.
 
 The current JSONB-backed implementation uses `financial_snapshot_document`.
-The other tables are present for the future relational persistence path and may
-remain empty.
+The other tables are inactive historical groundwork and may remain empty.
+Future relational persistence should use a new additive migration path instead
+of backfilling or dual-writing those V1 tables.
 
 ---
 
@@ -437,6 +438,7 @@ Financial snapshot endpoints:
 
 ```http
 GET /api/v1/financials
+GET /api/v1/financials/export
 PUT /api/v1/financials
 PUT /api/v1/financials/pay-period
 ```
@@ -453,7 +455,15 @@ The Financials UI currently uses a draft/save workflow:
 
 - one request loads the financial snapshot when the app opens
 - edits are made locally in the browser
-- one save request persists the full snapshot to the backend
+- one save request persists the full snapshot to the backend with the current
+  snapshot version
+
+If another tab or client saves first, the backend returns `409 Conflict` rather
+than silently overwriting the newer snapshot.
+
+The export endpoint downloads the currently saved source snapshot as a
+`financial-snapshot-v{version}.json` backup. It excludes calculated UI fields
+and should be handled as personal financial data.
 
 The individual bill endpoints remain available as a more granular API option,
 but the current UI treats the snapshot as the source of truth.
@@ -470,8 +480,9 @@ sections for:
   payoff, and possible HYSA transfer
 - monthly withdrawals with pay period planning
 - annual withdrawals that can be included in the active pay period
-- income summary derived from one editable bi-weekly net income value
-- income calendar events with received/current/upcoming status
+- income summary source rows plus derived net/disposable income values
+- income calendar events with recurring payday generation and
+  received/current/upcoming status
 - retirement accounts
 - investments
 - cash and savings
@@ -486,6 +497,11 @@ use `MM/DD/YYYY`; browser date inputs use native date controls for editing.
 Pay period dates are automatically derived from the saved schedule and today's
 date when the app opens. Manually changing the pay period dates updates that
 schedule anchor on the next save.
+
+The Income Calendar can generate bi-weekly paycheck rows for a selected year
+from the first payday, starting check number, label, and type. By default it
+replaces existing numbered income rows in that year while preserving one-time
+income events such as tax returns or bonuses.
 
 The Projection view is derived from the saved snapshot and current draft state.
 It focuses on the next pay period, using bi-weekly net income, bills due, annual
@@ -617,9 +633,11 @@ On a new machine, install the local Playwright Chromium browser first:
 .\scripts\run-browser-checks.ps1 -InstallBrowsers
 ```
 
-The current browser smoke uses synthetic mocked API data to validate browser
-navigation, draft editing, and save request construction without touching
-personal data or requiring the backend process.
+The current browser smoke starts Spring Boot and Vite together. Spring Boot uses
+the `json` profile with a disposable data path under `test-results/`, seeded
+from committed synthetic example data. The browser test covers load, edit,
+save, refresh persistence, delete confirmation, and post-delete refresh without
+touching personal local data.
 
 Inspect the local PostgreSQL schema and snapshot metadata without modifying
 data:

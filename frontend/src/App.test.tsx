@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockDispatch = vi.fn();
 const mockFinancialsState = {
   snapshot: {
+    version: 1,
     payPeriodStart: '2026-06-12',
     payPeriodEnd: '2026-06-26',
     totalMonthlyExpenses: 4890.92,
@@ -75,6 +76,12 @@ const mockFinancialsState = {
         category: 'Disposable Income',
         interval: 'Bi-Weekly',
         amount: 1901.58,
+      },
+      {
+        id: 4,
+        category: 'Side Income',
+        interval: 'Month',
+        amount: 125,
       },
     ],
     incomeEvents: [
@@ -159,6 +166,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /important dates/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^reset$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /export saved financial snapshot backup/i })
+    ).toHaveAttribute('href', '/api/v1/financials/export');
     expect(screen.getByText(/^Tracked assets$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Total debt$/i)).toBeInTheDocument();
     expect(screen.getByText(/^Net worth$/i)).toBeInTheDocument();
@@ -202,6 +212,20 @@ describe('App', () => {
     expect(screen.getByText(/^Next$/i)).toBeInTheDocument();
   });
 
+  it('generates recurring payday rows in the income calendar draft', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /income calendar/i }));
+    fireEvent.change(screen.getByLabelText(/^first payday$/i), {
+      target: { value: '2026-01-09' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /generate paydays/i }));
+
+    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '26' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '12/25/2026' })).toBeInTheDocument();
+  });
+
   it('renders annual withdrawals tab', () => {
     render(<App />);
 
@@ -238,6 +262,25 @@ describe('App', () => {
     expect(screen.getAllByRole('cell', { name: /bi-weekly/i })).not.toHaveLength(0);
     expect(screen.getByDisplayValue('3396.25')).toBeInTheDocument();
     expect(screen.getByText('$4,192.50')).toBeInTheDocument();
+  });
+
+  it('renders and edits persisted non-primary income summary source rows', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /income summary/i }));
+
+    const sourceTable = screen.getByRole('table', { name: /saved income source rows/i });
+
+    expect(within(sourceTable).getByRole('cell', { name: /side income/i })).toBeInTheDocument();
+    expect(within(sourceTable).getByRole('cell', { name: /^month$/i })).toBeInTheDocument();
+    expect(within(sourceTable).getByRole('cell', { name: '$125.00' })).toBeInTheDocument();
+
+    fireEvent.click(within(sourceTable).getByRole('button', { name: /edit side income month/i }));
+    fireEvent.change(screen.getByLabelText(/^amount$/i), { target: { value: '200' } });
+    fireEvent.click(screen.getByRole('button', { name: /update draft/i }));
+
+    expect(within(sourceTable).getByRole('cell', { name: '$200.00' })).toBeInTheDocument();
+    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
   });
 
   it('renders debt tab', () => {

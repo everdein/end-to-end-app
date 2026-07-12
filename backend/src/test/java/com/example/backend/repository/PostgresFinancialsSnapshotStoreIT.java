@@ -74,15 +74,16 @@ class PostgresFinancialsSnapshotStoreIT {
             "select count(*) from financial_snapshot_document where active = true", Integer.class);
 
     assertThat(loaded.bills()).isEmpty();
+    assertThat(loaded.version()).isEqualTo(1L);
     assertThat(rowCount).isEqualTo(1);
   }
 
   @Test
   void savesLoadsAndIncrementsVersion() {
-    store.load();
+    FinancialsData seed = store.load();
 
-    store.save(snapshotWithBill("Water", "31.25"));
-    store.save(snapshotWithBill("Electricity", "42.50"));
+    store.save(snapshotWithBill("Water", "31.25").withVersion(seed.version() + 1));
+    store.save(snapshotWithBill("Electricity", "42.50").withVersion(seed.version() + 2));
 
     FinancialsData loaded = store.load();
     Long version =
@@ -90,6 +91,7 @@ class PostgresFinancialsSnapshotStoreIT {
             "select version from financial_snapshot_document where active = true", Long.class);
 
     assertThat(loaded.bills()).hasSize(1);
+    assertThat(loaded.version()).isEqualTo(3L);
     assertThat(loaded.bills().getFirst().bill()).isEqualTo("Electricity");
     assertThat(loaded.bills().getFirst().amount()).isEqualByComparingTo("42.50");
     assertThat(version).isEqualTo(3);

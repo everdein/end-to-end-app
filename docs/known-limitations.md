@@ -38,14 +38,17 @@ changes in a new ADR.
 
 ## API and Concurrency
 
-### LIM-004 — Last-write-wins snapshot saves
+### LIM-004 — Granular endpoints do not carry snapshot versions
 
-- **Status:** Accepted for one active editor
-- **Impact:** Concurrent tabs or clients can overwrite newer changes without a
-  conflict warning.
-- **Current mitigation:** Single-user workflow and visible save state.
-- **Revisit when:** Multiple tabs/users, remote access, background writes, or
-  synchronization are supported. Add a version/ETag contract before then.
+- **Status:** Partially resolved for full-snapshot saves
+- **Impact:** `PUT /api/v1/financials` rejects stale versions with `409`, but
+  granular bill and pay-period endpoints still mutate immediately without a
+  client-supplied aggregate version.
+- **Current mitigation:** The current browser workspace primarily uses the
+  versioned full-snapshot save boundary; granular endpoints remain direct API
+  utilities.
+- **Revisit when:** Multiple tabs/users, remote access, background writes,
+  synchronization, or broader granular editing are supported.
 
 ### LIM-005 — Full-snapshot replacement can delete omitted collections
 
@@ -132,17 +135,19 @@ changes in a new ADR.
 - **Current mitigation:** One active document, version metadata, serialization
   parity tests, and simple load/save behavior.
 - **Revisit when:** Reporting, granular concurrency, audit history, relational
-  integrity, or large snapshots are needed.
+  integrity, or large snapshots are needed. Use ADR 0009's new-migration path,
+  not the inactive V1 tables as-is.
 
 ### LIM-013 — Normalized V1 tables are inactive
 
-- **Status:** Intentional groundwork
+- **Status:** Intentional historical groundwork; path decided in ADR 0009
 - **Impact:** Their presence can mislead operators into expecting data; they may
   remain empty while the application is healthy.
 - **Current mitigation:** Storage guide, inspector, and architecture map
-  identify `financial_snapshot_document` as authoritative.
-- **Revisit when:** Choosing between removing the groundwork and implementing a
-  relational adapter.
+  identify `financial_snapshot_document` as authoritative and prohibit
+  dual-write/backfill through V1.
+- **Revisit when:** Planning a production schema cleanup or designing a new
+  additive relational persistence migration.
 
 ### LIM-014 — Local setup and runtime have dual migration paths
 
@@ -166,11 +171,13 @@ changes in a new ADR.
 
 ### LIM-016 — No automated backup, restore, or profile migration
 
-- **Status:** Known gap
-- **Impact:** JSON has only one local backup copy; PostgreSQL backup/restore and
-  JSON-to-PostgreSQL movement are manual and unverified as a product workflow.
-- **Current mitigation:** Operator backups before risky changes and
-  metadata-only verification afterward.
+- **Status:** Partially mitigated
+- **Impact:** The app can export the saved snapshot as JSON, but there is still
+  no automated backup schedule, import/restore command, PostgreSQL dump flow, or
+  verified cross-profile migration workflow.
+- **Current mitigation:** Manual `GET /api/v1/financials/export` downloads,
+  operator backups before risky changes, and metadata-only verification
+  afterward.
 - **Revisit when:** Personal data becomes irreplaceable, migrations recur, or a
   deployment is planned.
 
@@ -197,16 +204,17 @@ changes in a new ADR.
 
 ### LIM-019 — Browser workflow coverage is smoke-level
 
-- **Status:** Known gap
-- **Impact:** The Playwright smoke test proves Vite startup, browser
-  navigation, mocked API loading, draft editing, and save payload construction,
-  but it does not prove the Vite proxy, live backend, PostgreSQL profile, or
-  full save/reload workflow together.
-- **Current mitigation:** Testing Library coverage, API/service tests,
-  `scripts/run-browser-checks.ps1`, and manual browser verification for UI
-  changes.
-- **Revisit when:** Live-backend browser tests are added or release frequency
-  grows.
+- **Status:** Partially mitigated
+- **Impact:** The Playwright smoke test now proves Vite startup, proxying to a
+  live JSON-profile backend, browser navigation, draft editing, full-snapshot
+  save, refresh persistence, delete confirmation, and post-delete persistence.
+  It still does not cover every tab, PostgreSQL-backed browser workflows,
+  visual regression, authentication, or assistive-technology behavior.
+- **Current mitigation:** Live-backend `scripts/run-browser-checks.ps1`,
+  Testing Library coverage, API/service tests, and manual browser verification
+  for UI changes.
+- **Revisit when:** PostgreSQL browser parity, visual regression, or broader
+  release confidence is required.
 
 ### LIM-020 — Accessibility automation is partial
 

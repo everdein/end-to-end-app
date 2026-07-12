@@ -25,6 +25,9 @@
 
 import { httpDelete, httpGet, httpPost, httpPut } from '../client';
 
+// Download-only endpoint for the saved source snapshot backup.
+export const FINANCIALS_EXPORT_PATH = '/api/v1/financials/export';
+
 export type ExpenseBill = {
   id: number;
   bill: string;
@@ -83,6 +86,7 @@ export type AnnualWithdrawalSnapshotRequest = {
 };
 
 export type ExpenseSnapshotRequest = {
+  version: number;
   payPeriodStart: string;
   payPeriodEnd: string;
   bills: ExpenseBillSnapshotRequest[];
@@ -181,6 +185,7 @@ export type ImportantDateSnapshotRequest = {
 };
 
 export type ExpenseSnapshot = {
+  version: number;
   payPeriodStart: string;
   payPeriodEnd: string;
   totalMonthlyExpenses: number;
@@ -199,6 +204,12 @@ export type ExpenseSnapshot = {
   annualWithdrawals: AnnualWithdrawal[];
   incomeEvents: IncomeEvent[];
   importantDates: ImportantDate[];
+};
+
+export type FinancialSnapshotExport = {
+  format: 'end-to-end-app.financial-snapshot.v1';
+  exportedAt: string;
+  snapshot: ExpenseSnapshotRequest;
 };
 
 export const financialsService = {

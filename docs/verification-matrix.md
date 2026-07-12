@@ -132,11 +132,13 @@ PostgreSQL verification is required for changes to:
 .\scripts\run-browser-checks.ps1 -InstallBrowsers
 ```
 
-The browser smoke test starts Vite, mocks `/api/v1/financials` with synthetic
-data, edits a monthly withdrawal, and verifies the save request payload. It is
-required for changes to browser-only behavior, route interception, visual
-workflow assumptions, or the Playwright harness. It does not replace backend
-API, persistence, or full local verification.
+The browser smoke test starts Spring Boot and Vite together. Spring Boot runs
+with the `json` profile and a disposable data path under `test-results/`, seeded
+from committed synthetic example data. The browser test covers load, edit,
+save, refresh persistence, delete confirmation, and post-delete refresh. It is
+required for changes to browser workflows, Vite proxy behavior, save/load
+interaction paths, or the Playwright harness. It does not replace backend API,
+unit/service coverage, PostgreSQL verification, or full local verification.
 
 ### Security
 

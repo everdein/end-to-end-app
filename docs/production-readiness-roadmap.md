@@ -27,22 +27,29 @@ by isolated technical concern.
 - [x] Add PostgreSQL snapshot persistence.
 - [x] Add opt-in PostgreSQL snapshot store integration test.
 - [x] Add documented PostgreSQL backend startup helper.
+- [x] Add snapshot versioning and optimistic concurrency for full-snapshot
+      saves.
+- [x] Fix display/edit support for persisted non-primary income summary source
+      rows.
+- [x] Decide the PostgreSQL relational schema path: keep V1 normalized tables
+      inactive and use a future additive migration path.
+- [x] Add JSON export/download support for the saved financial snapshot.
+- [x] Expand Playwright from synthetic mocked coverage to live-backend
+      end-to-end coverage for load, edit, save, refresh, and delete
+      confirmation.
+- [x] Add recurring payday generation for yearly income calendars.
 
 ## Phase A - Make It Real
 
-- [ ] Fix display/edit support for persisted non-primary income summary source
-      rows so future income sources are not hidden by derived rows.
-- [ ] Decide whether the V1 normalized PostgreSQL tables should become active
-      relational persistence or be replaced by a cleaner migration path.
-- [ ] Add granular PostgreSQL CRUD persistence for financial records.
 - [ ] Introduce a clearer backend domain model around financial records.
+- [ ] Add a clean relational PostgreSQL migration/adapter path for financial
+      records.
+- [ ] Add granular PostgreSQL CRUD persistence for financial records.
 - [ ] Add CRUD APIs for financial records beyond the existing bill endpoints.
-- [ ] Add recurring payday generation.
 - [ ] Add CSV/XLSX import and export tooling.
 
 ## Phase B - Make It Safe
 
-- [ ] Add snapshot versioning or optimistic concurrency.
 - [ ] Harden and complete validation/error handling across all future endpoints.
 - [ ] Add authentication and authorization for all financial APIs.
 - [ ] Add production configuration guardrails for CORS, actuator exposure,
@@ -51,8 +58,6 @@ by isolated technical concern.
 
 ## Phase C - Make It Impressive
 
-- [ ] Expand Playwright from synthetic smoke coverage to live-backend
-      end-to-end tests for core financial workflows.
 - [ ] Add audit/history support for financial changes and projections.
 - [ ] Add PR coverage summaries.
 - [ ] Add CodeQL and GitHub dependency review.
@@ -71,12 +76,5 @@ by isolated technical concern.
 
 Next highest-value items:
 
-1. Add snapshot versioning or optimistic concurrency so two sessions cannot
-   silently overwrite each other.
-2. Fix display/edit handling for persisted non-primary income summary rows.
-3. Decide the PostgreSQL relational schema path before adding more migrations.
-4. Add export/backup support for the current financial snapshot.
-5. Add Playwright end-to-end coverage for load, edit, save, refresh, and delete
-   confirmation workflows.
-6. Add recurring payday generation so yearly income calendars do not need to be
-   manually entered.
+1. Introduce a clearer backend domain model around financial records.
+2. Add CSV/XLSX import and export tooling.

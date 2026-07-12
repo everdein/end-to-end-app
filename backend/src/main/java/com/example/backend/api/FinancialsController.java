@@ -4,10 +4,16 @@ import com.example.backend.dto.financials.ExpenseBillRequest;
 import com.example.backend.dto.financials.ExpenseBillResponse;
 import com.example.backend.dto.financials.ExpenseSnapshotRequest;
 import com.example.backend.dto.financials.ExpenseSnapshotResponse;
+import com.example.backend.dto.financials.FinancialSnapshotExportResponse;
 import com.example.backend.dto.financials.PayPeriodRequest;
 import com.example.backend.service.FinancialsService;
 import jakarta.validation.Valid;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,6 +51,19 @@ public class FinancialsController {
   @GetMapping
   public ExpenseSnapshotResponse getSnapshot() {
     return financialsService.getSnapshot();
+  }
+
+  @GetMapping(value = "/export", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<FinancialSnapshotExportResponse> exportSnapshot() {
+    FinancialSnapshotExportResponse snapshotExport = financialsService.exportSnapshot();
+    String filename = "financial-snapshot-v" + snapshotExport.snapshot().version() + ".json";
+
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noStore())
+        .header(
+            HttpHeaders.CONTENT_DISPOSITION,
+            ContentDisposition.attachment().filename(filename).build().toString())
+        .body(snapshotExport);
   }
 
   @PostMapping("/bills")

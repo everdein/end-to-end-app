@@ -13,6 +13,7 @@ import com.example.backend.dto.financials.ExpenseBillResponse;
 import com.example.backend.dto.financials.ExpenseBillSnapshotRequest;
 import com.example.backend.dto.financials.ExpenseSnapshotRequest;
 import com.example.backend.dto.financials.ExpenseSnapshotResponse;
+import com.example.backend.dto.financials.FinancialSnapshotExportResponse;
 import com.example.backend.dto.financials.ImportantDateResponse;
 import com.example.backend.dto.financials.ImportantDateSnapshotRequest;
 import com.example.backend.dto.financials.IncomeEventResponse;
@@ -24,12 +25,15 @@ import com.example.backend.repository.AnnualWithdrawal;
 import com.example.backend.repository.AssetAccount;
 import com.example.backend.repository.DebtAccount;
 import com.example.backend.repository.ExpenseBill;
+import com.example.backend.repository.FinancialsData;
 import com.example.backend.repository.FinancialsRepository;
 import com.example.backend.repository.ImportantDate;
 import com.example.backend.repository.IncomeEvent;
 import com.example.backend.repository.IncomeSummaryItem;
+import com.example.backend.repository.SnapshotVersionConflictException;
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -109,6 +113,7 @@ public class FinancialsService {
     List<ImportantDateResponse> importantDates = importantDates();
 
     return new ExpenseSnapshotResponse(
+        financialsRepository.version(),
         startDate,
         endDate,
         totalMonthlyExpenses,
@@ -156,6 +161,7 @@ public class FinancialsService {
   }
 
   public ExpenseSnapshotResponse saveSnapshot(ExpenseSnapshotRequest request) {
+    long expectedVersion = validateSnapshotVersion(request.version());
     validatePayPeriod(request.payPeriodStart(), request.payPeriodEnd());
     List<ExpenseBill> bills = normalizeBills(request.bills().stream().map(this::toBill).toList());
     List<AnnualWithdrawal> annualWithdrawals =
@@ -176,17 +182,32 @@ public class FinancialsService {
         request.incomeEvents().stream().map(this::toIncomeEvent).toList();
     List<ImportantDate> importantDates =
         request.importantDates().stream().map(this::toImportantDate).toList();
-    financialsRepository.replaceSnapshot(
-        request.payPeriodStart(),
-        request.payPeriodEnd(),
-        bills,
-        annualWithdrawals,
-        assetAccounts,
-        debtAccounts,
-        incomeSummaryItems,
-        incomeEvents,
-        importantDates);
+    try {
+      financialsRepository.replaceSnapshot(
+          expectedVersion,
+          request.payPeriodStart(),
+          request.payPeriodEnd(),
+          bills,
+          annualWithdrawals,
+          assetAccounts,
+          debtAccounts,
+          incomeSummaryItems,
+          incomeEvents,
+          importantDates);
+    } catch (SnapshotVersionConflictException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT,
+          "The financial snapshot changed after it was loaded. Reload before saving.",
+          exception);
+    }
     return getSnapshot();
+  }
+
+  public FinancialSnapshotExportResponse exportSnapshot() {
+    return new FinancialSnapshotExportResponse(
+        "end-to-end-app.financial-snapshot.v1",
+        Instant.now(clock),
+        toSnapshotRequest(financialsRepository.currentSnapshotData()));
   }
 
   private ExpenseBill toBill(ExpenseBillRequest request, long id) {
@@ -210,6 +231,79 @@ public class FinancialsService {
         request.amount(),
         request.account().trim(),
         request.paid());
+  }
+
+  private ExpenseSnapshotRequest toSnapshotRequest(FinancialsData data) {
+    return new ExpenseSnapshotRequest(
+        data.version(),
+        data.payPeriodStart(),
+        data.payPeriodEnd(),
+        nullSafe(data.bills()).stream().map(this::toSnapshotRequest).toList(),
+        nullSafe(data.annualWithdrawals()).stream().map(this::toSnapshotRequest).toList(),
+        toSnapshotAssetCategories(nullSafe(data.assetAccounts())),
+        nullSafe(data.debtAccounts()).stream().map(this::toSnapshotRequest).toList(),
+        nullSafe(data.incomeSummaryItems()).stream().map(this::toSnapshotRequest).toList(),
+        nullSafe(data.incomeEvents()).stream().map(this::toSnapshotRequest).toList(),
+        nullSafe(data.importantDates()).stream().map(this::toSnapshotRequest).toList());
+  }
+
+  private ExpenseBillSnapshotRequest toSnapshotRequest(ExpenseBill bill) {
+    return new ExpenseBillSnapshotRequest(
+        bill.id(), bill.bill(), bill.dueDay(), bill.amount(), bill.account(), bill.paid());
+  }
+
+  private AnnualWithdrawalSnapshotRequest toSnapshotRequest(AnnualWithdrawal withdrawal) {
+    return new AnnualWithdrawalSnapshotRequest(
+        withdrawal.id(),
+        withdrawal.bill(),
+        withdrawal.month(),
+        withdrawal.day(),
+        withdrawal.amount(),
+        withdrawal.account(),
+        withdrawal.paid());
+  }
+
+  private List<AssetCategorySnapshotRequest> toSnapshotAssetCategories(
+      List<AssetAccount> accounts) {
+    Map<String, String> labelsByCategory = new LinkedHashMap<>();
+    Map<String, List<AssetAccountSnapshotRequest>> accountsByCategory = new LinkedHashMap<>();
+
+    accounts.forEach(
+        (account) -> {
+          labelsByCategory.putIfAbsent(account.categoryKey(), account.categoryLabel());
+          accountsByCategory
+              .computeIfAbsent(account.categoryKey(), (key) -> new ArrayList<>())
+              .add(
+                  new AssetAccountSnapshotRequest(
+                      account.id(), account.account(), account.company(), account.amount()));
+        });
+
+    return accountsByCategory.entrySet().stream()
+        .map(
+            (entry) ->
+                new AssetCategorySnapshotRequest(
+                    entry.getKey(), labelsByCategory.get(entry.getKey()), entry.getValue()))
+        .toList();
+  }
+
+  private DebtAccountSnapshotRequest toSnapshotRequest(DebtAccount account) {
+    return new DebtAccountSnapshotRequest(
+        account.id(), account.account(), account.company(), account.amount());
+  }
+
+  private IncomeSummaryItemSnapshotRequest toSnapshotRequest(IncomeSummaryItem item) {
+    return new IncomeSummaryItemSnapshotRequest(
+        item.id(), item.category(), item.interval(), item.amount());
+  }
+
+  private IncomeEventSnapshotRequest toSnapshotRequest(IncomeEvent event) {
+    return new IncomeEventSnapshotRequest(
+        event.id(), event.date(), event.label(), event.type(), event.checkNumber());
+  }
+
+  private ImportantDateSnapshotRequest toSnapshotRequest(ImportantDate importantDate) {
+    return new ImportantDateSnapshotRequest(
+        importantDate.id(), importantDate.date(), importantDate.event(), importantDate.type());
   }
 
   private void validateBill(String bill, int dueDay, BigDecimal amount, String account) {
@@ -275,6 +369,15 @@ public class FinancialsService {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Pay period end date must be on or after start date");
     }
+  }
+
+  private long validateSnapshotVersion(Long version) {
+    if (version == null || version < 1) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Snapshot version must be a positive number");
+    }
+
+    return version;
   }
 
   private List<AssetAccount> toAssetAccounts(AssetCategorySnapshotRequest category) {

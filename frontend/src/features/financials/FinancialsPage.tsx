@@ -7,11 +7,18 @@ import { AnnualWithdrawalsTab } from './AnnualWithdrawalsTab';
 import { AssetTable } from './AssetTable';
 import { ConfirmRemoveModal } from './ConfirmRemoveModal';
 import { DebtTab } from './DebtTab';
-import { isPrimaryPaycheck, isRentReserveAccount, isRentWithdrawal } from './financialsAnchors';
+import {
+  isPrimaryPaycheck,
+  isRentReserveAccount,
+  isRentWithdrawal,
+  PRIMARY_PAYCHECK_CATEGORY,
+  PRIMARY_PAYCHECK_INTERVAL,
+} from './financialsAnchors';
 import {
   buildDerivedIncomeSummaryItems,
   buildExpenseSnapshotRequest,
   createFinancialsDraft,
+  defaultRecurringPaydayForm,
   emptyAnnualWithdrawalForm,
   emptyAssetForm,
   emptyForm,
@@ -25,9 +32,11 @@ import {
   formToImportantDate,
   formToIncomeEvent,
   formToIncomeSummaryItem,
+  generateRecurringPaydays,
   getCurrentPaycheck,
   getNextImportantDate,
   getTodayIso,
+  isNumberedIncomeEventInYear,
   recalculateAssetCategory,
   removalItemType,
   toAnnualWithdrawalForm,
@@ -38,6 +47,7 @@ import {
   toForm,
   toImportantDateForm,
   toIncomeEventForm,
+  toIncomeSummaryForm,
   withImportantDateStatuses,
   withIncomeEventStatuses,
 } from './financialsDraft';
@@ -61,6 +71,7 @@ import type {
   IncomeSummaryFormState,
   PendingRemoval,
   ProjectionSummary,
+  RecurringPaydayFormState,
 } from './financialsTypes';
 import { ImportantDatesTab } from './ImportantDatesTab';
 import { IncomeCalendarTab } from './IncomeCalendarTab';
@@ -101,10 +112,15 @@ export default function FinancialsPage() {
   );
   const [incomeSummaryForm, setIncomeSummaryForm] =
     useState<IncomeSummaryFormState>(emptyIncomeSummaryForm);
+  const [editingIncomeSummaryItemId, setEditingIncomeSummaryItemId] = useState<number | null>(null);
+  const [nextDraftIncomeSummaryItemId, setNextDraftIncomeSummaryItemId] = useState(-1);
   const [draftIncomeEvents, setDraftIncomeEvents] = useState<DraftIncomeEvent[]>([]);
   const [editingIncomeEventId, setEditingIncomeEventId] = useState<number | null>(null);
   const [incomeEventForm, setIncomeEventForm] =
     useState<IncomeEventFormState>(emptyIncomeEventForm);
+  const [recurringPaydayForm, setRecurringPaydayForm] = useState<RecurringPaydayFormState>(() =>
+    defaultRecurringPaydayForm()
+  );
   const [nextDraftIncomeEventId, setNextDraftIncomeEventId] = useState(-1);
   const [draftImportantDates, setDraftImportantDates] = useState<DraftImportantDate[]>([]);
   const [editingImportantDateId, setEditingImportantDateId] = useState<number | null>(null);
@@ -144,13 +160,15 @@ export default function FinancialsPage() {
       setAssetForm(emptyAssetForm);
       setEditingDebtId(null);
       setDebtForm(emptyAssetForm);
+      setEditingIncomeSummaryItemId(null);
       setEditingIncomeEventId(null);
       setIncomeEventForm(emptyIncomeEventForm);
+      setRecurringPaydayForm(defaultRecurringPaydayForm(todayIso));
       setEditingImportantDateId(null);
       setImportantDateForm(emptyImportantDateForm);
       setPendingRemoval(null);
     }
-  }, [loadSnapshotDraft, snapshot]);
+  }, [loadSnapshotDraft, snapshot, todayIso]);
 
   useEffect(() => {
     if (payPeriodStart && payPeriodEnd) {
@@ -213,11 +231,19 @@ export default function FinancialsPage() {
     () => [...draftDebtAccounts].sort((left, right) => left.account.localeCompare(right.account)),
     [draftDebtAccounts]
   );
-  const incomeSummaryItems = useMemo(
+  const sourceIncomeSummaryItems = useMemo(
+    () =>
+      [...draftIncomeSummaryItems].sort(
+        (left, right) =>
+          left.category.localeCompare(right.category) || left.interval.localeCompare(right.interval)
+      ),
+    [draftIncomeSummaryItems]
+  );
+  const derivedIncomeSummaryItems = useMemo(
     () => buildDerivedIncomeSummaryItems(draftIncomeSummaryItems, totals.totalMonthlyExpenses),
     [draftIncomeSummaryItems, totals.totalMonthlyExpenses]
   );
-  const primaryPaycheckIncome = incomeSummaryItems.find(isPrimaryPaycheck);
+  const primaryPaycheckIncome = derivedIncomeSummaryItems.find(isPrimaryPaycheck);
   const incomeEvents = useMemo(
     () => withIncomeEventStatuses(draftIncomeEvents, todayIso),
     [draftIncomeEvents, todayIso]
@@ -335,6 +361,10 @@ export default function FinancialsPage() {
   }
 
   async function saveDraft() {
+    if (!snapshot) {
+      return;
+    }
+
     await dispatch(
       saveExpenseSnapshot(
         buildExpenseSnapshotRequest({
@@ -347,6 +377,7 @@ export default function FinancialsPage() {
           importantDates,
           payPeriodEnd,
           payPeriodStart,
+          version: snapshot.version,
         })
       )
     );
@@ -444,6 +475,7 @@ export default function FinancialsPage() {
     cancelAnnualWithdrawalEdit();
     cancelAssetEdit();
     cancelDebtEdit();
+    cancelIncomeSummaryItemEdit();
     cancelIncomeEventEdit();
     cancelImportantDateEdit();
     setPendingRemoval(null);
@@ -593,32 +625,72 @@ export default function FinancialsPage() {
   function submitIncomeSummaryItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const sourceForm: IncomeSummaryFormState = {
-      ...incomeSummaryForm,
-      category: 'Net Income',
-      interval: 'Bi-Weekly',
-    };
+    const editingSource =
+      editingIncomeSummaryItemId === null
+        ? null
+        : draftIncomeSummaryItems.find((item) => item.id === editingIncomeSummaryItemId);
+    const sourceForm: IncomeSummaryFormState =
+      editingSource && isPrimaryPaycheck(editingSource)
+        ? {
+            ...incomeSummaryForm,
+            category: PRIMARY_PAYCHECK_CATEGORY,
+            interval: PRIMARY_PAYCHECK_INTERVAL,
+          }
+        : {
+            ...incomeSummaryForm,
+            category: incomeSummaryForm.category.trim(),
+            interval: incomeSummaryForm.interval.trim(),
+          };
+    const matchingSource =
+      editingIncomeSummaryItemId === null
+        ? draftIncomeSummaryItems.find((item) => incomeSummarySourceMatches(item, sourceForm))
+        : null;
+    const targetId =
+      editingIncomeSummaryItemId ?? matchingSource?.id ?? nextDraftIncomeSummaryItemId;
+    const updatedSource = formToIncomeSummaryItem(targetId, sourceForm);
+    const hasExistingSource = draftIncomeSummaryItems.some((item) => item.id === targetId);
+    const nextIncomeSummaryItems = hasExistingSource
+      ? draftIncomeSummaryItems.map((item) => (item.id === targetId ? updatedSource : item))
+      : [...draftIncomeSummaryItems, updatedSource];
 
-    setDraftIncomeSummaryItems((current) => {
-      const primaryPaycheck = current.find(isPrimaryPaycheck);
-      const primaryPaycheckId = primaryPaycheck?.id ?? -100002;
-      const updatedPrimaryPaycheck = formToIncomeSummaryItem(primaryPaycheckId, sourceForm);
-
-      if (!primaryPaycheck) {
-        return [...current, updatedPrimaryPaycheck];
-      }
-
-      return current.map((item) => (isPrimaryPaycheck(item) ? updatedPrimaryPaycheck : item));
-    });
-
-    setIncomeSummaryForm(sourceForm);
+    setDraftIncomeSummaryItems(nextIncomeSummaryItems);
+    if (!hasExistingSource) {
+      setNextDraftIncomeSummaryItemId((current) => current - 1);
+    }
+    setEditingIncomeSummaryItemId(null);
+    setIncomeSummaryForm(defaultIncomeSummaryForm(nextIncomeSummaryItems));
     setIsDirty(true);
+  }
+
+  function startIncomeSummaryItemEdit(item: DraftIncomeSummaryItem) {
+    setEditingIncomeSummaryItemId(item.id);
+    setIncomeSummaryForm(toIncomeSummaryForm(item));
+  }
+
+  function cancelIncomeSummaryItemEdit() {
+    setEditingIncomeSummaryItemId(null);
+    setIncomeSummaryForm(defaultIncomeSummaryForm(draftIncomeSummaryItems));
+  }
+
+  function requestRemoveIncomeSummaryItem(item: DraftIncomeSummaryItem) {
+    if (isPrimaryPaycheck(item)) {
+      return;
+    }
+
+    setPendingRemoval({
+      id: item.id,
+      name: `${item.category} / ${item.interval}`,
+      type: 'income-summary',
+    });
   }
 
   function removeIncomeSummaryItem(id: number) {
     setDraftIncomeSummaryItems((current) =>
       current.filter((item) => item.id !== id || isPrimaryPaycheck(item))
     );
+    if (editingIncomeSummaryItemId === id) {
+      cancelIncomeSummaryItemEdit();
+    }
     setIsDirty(true);
   }
 
@@ -627,6 +699,16 @@ export default function FinancialsPage() {
     value: IncomeEventFormState[K]
   ) {
     setIncomeEventForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateRecurringPaydayForm<K extends keyof RecurringPaydayFormState>(
+    key: K,
+    value: RecurringPaydayFormState[K]
+  ) {
+    setRecurringPaydayForm((current) => {
+      const next = { ...current, [key]: value };
+      return key === 'year' ? { ...next, firstPayDate: '' } : next;
+    });
   }
 
   function submitIncomeEvent(event: FormEvent<HTMLFormElement>) {
@@ -649,6 +731,26 @@ export default function FinancialsPage() {
     }
 
     cancelIncomeEventEdit();
+    setIsDirty(true);
+  }
+
+  function submitRecurringPaydays(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const generatedPaydays = generateRecurringPaydays(recurringPaydayForm, nextDraftIncomeEventId);
+    if (generatedPaydays.length === 0) {
+      return;
+    }
+
+    setDraftIncomeEvents((current) => {
+      const retainedEvents = recurringPaydayForm.replaceExistingYear
+        ? current.filter(
+            (incomeEvent) => !isNumberedIncomeEventInYear(incomeEvent, recurringPaydayForm.year)
+          )
+        : current;
+      return [...retainedEvents, ...generatedPaydays];
+    });
+    setNextDraftIncomeEventId((current) => current - generatedPaydays.length);
     setIsDirty(true);
   }
 
@@ -844,8 +946,13 @@ export default function FinancialsPage() {
 
               {activeTab === 'income-summary' && (
                 <IncomeSummaryTab
+                  cancelIncomeSummaryItemEdit={cancelIncomeSummaryItemEdit}
+                  derivedIncomeSummaryItems={derivedIncomeSummaryItems}
+                  editingIncomeSummaryItemId={editingIncomeSummaryItemId}
                   incomeSummaryForm={incomeSummaryForm}
-                  incomeSummaryItems={incomeSummaryItems}
+                  requestRemoveIncomeSummaryItem={requestRemoveIncomeSummaryItem}
+                  sourceIncomeSummaryItems={sourceIncomeSummaryItems}
+                  startIncomeSummaryItemEdit={startIncomeSummaryItemEdit}
                   submitIncomeSummaryItem={submitIncomeSummaryItem}
                   updateIncomeSummaryForm={updateIncomeSummaryForm}
                 />
@@ -857,10 +964,13 @@ export default function FinancialsPage() {
                   editingIncomeEventId={editingIncomeEventId}
                   incomeEventForm={incomeEventForm}
                   incomeEvents={incomeEvents}
+                  recurringPaydayForm={recurringPaydayForm}
                   requestRemoveIncomeEvent={requestRemoveIncomeEvent}
                   startIncomeEventEdit={startIncomeEventEdit}
+                  submitRecurringPaydays={submitRecurringPaydays}
                   submitIncomeEvent={submitIncomeEvent}
                   updateIncomeEventForm={updateIncomeEventForm}
+                  updateRecurringPaydayForm={updateRecurringPaydayForm}
                 />
               )}
 
@@ -953,5 +1063,20 @@ export default function FinancialsPage() {
         />
       )}
     </main>
+  );
+}
+
+function defaultIncomeSummaryForm(items: DraftIncomeSummaryItem[]): IncomeSummaryFormState {
+  const primaryPaycheck = items.find(isPrimaryPaycheck);
+  return primaryPaycheck ? toIncomeSummaryForm(primaryPaycheck) : emptyIncomeSummaryForm;
+}
+
+function incomeSummarySourceMatches(
+  item: Pick<DraftIncomeSummaryItem, 'category' | 'interval'>,
+  form: Pick<IncomeSummaryFormState, 'category' | 'interval'>
+) {
+  return (
+    item.category.trim().toLowerCase() === form.category.trim().toLowerCase() &&
+    item.interval.trim().toLowerCase() === form.interval.trim().toLowerCase()
   );
 }
