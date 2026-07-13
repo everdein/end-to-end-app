@@ -66,6 +66,10 @@ For a new machine or Codex surface:
 6. If a credentialed check cannot run, report it as skipped or unavailable.
    Never convert missing authentication into a clean result.
 
+See `docs/github-codex-configuration.md` for the audited repository baseline,
+the connector pull-request permission gap, narrow Codex command approvals, and
+recommended GitHub settings.
+
 ### Read/Write Boundary
 
 | Action type                     | Default stance             | Examples                                                         |
