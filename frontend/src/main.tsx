@@ -4,11 +4,17 @@ import { Provider } from 'react-redux';
 
 import App from './App';
 import { store } from './app/store';
+import { AppErrorBoundary } from './observability/AppErrorBoundary';
+import { installGlobalErrorReporting } from './observability/errorReporter';
+
+installGlobalErrorReporting();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Provider store={store}>
-      <App />
-    </Provider>
+    <AppErrorBoundary>
+      <Provider store={store}>
+        <App />
+      </Provider>
+    </AppErrorBoundary>
   </React.StrictMode>
 );

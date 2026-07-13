@@ -50,7 +50,8 @@ beyond the repository skills and review checklist.
 - [x] Read-only PostgreSQL MCP role and setup
 - [x] Browser/Playwright workflow testing
 - [x] Snyk MCP/API feasibility assessment
-- [ ] Observability integration when production telemetry exists
+- [x] Vendor-neutral observability foundation; connect a hosted telemetry
+      provider later when production infrastructure exists
 
 Filesystem MCP is intentionally omitted because agents already have workspace
 access.

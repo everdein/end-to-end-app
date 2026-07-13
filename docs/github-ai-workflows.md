@@ -39,6 +39,9 @@ perform deeper analysis of complex logic, security-sensitive code, and
 cross-service changes, but GitHub documents it as public preview and notes that
 it can consume more Actions minutes and AI credits.
 
+The current repository configuration and recommended Codex/GitHub integration
+adjustments are tracked in `docs/github-codex-configuration.md`.
+
 ## Review Comment Severity
 
 `.github/copilot-instructions.md` asks Copilot to categorize comments with this

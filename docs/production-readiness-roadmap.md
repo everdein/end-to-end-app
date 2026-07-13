@@ -68,20 +68,49 @@ Phase B is complete.
 
 Phase C is complete.
 
-## Future Scaling
+## Phase D - Make It Operable
 
-- [ ] Add observability with structured logs, request IDs, frontend error
-      reporting, and basic metrics.
-- [ ] Split frontend draft state by domain feature.
-- [ ] Add multi-user support after auth and database ownership foundations are
-      mature.
+- [x] Add a vendor-neutral observability foundation with structured logs,
+      request IDs, frontend error containment, and safe application metrics.
+- [ ] Connect logs, errors, and metrics to a production telemetry provider once
+      the hosting platform and data-retention policy are selected.
+
+The local observability foundation completes the current setup, maintenance,
+security, verification, and operational-readiness program. Selecting a hosted
+telemetry provider remains part of production deployment rather than a blocker
+for product development.
+
+## Post-Observability Product Roadmap
+
+Complete these product phases in order after the local observability foundation:
+
+1. **Reduce frontend complexity.** Split financial draft state, actions,
+   validation, and tests by domain feature while preserving the versioned
+   snapshot save contract.
+2. **Introduce real account management.** Replace the shared local Basic-auth
+   identity with signup, sign-in, sign-out, session recovery, and secure
+   credential lifecycle behavior.
+3. **Enforce per-user financial ownership.** Add an additive ownership schema,
+   migrate existing local data deliberately, scope every repository query and
+   API operation to the authenticated user, and add cross-user isolation tests.
+4. **Make the application product-quality.** Improve onboarding, navigation,
+   dashboards, forms, accessibility, responsive/mobile behavior, and clear
+   empty, loading, success, and error states.
+5. **Complete production operations.** Select hosting and telemetry providers;
+   configure deployment, backups, restore drills, retention, privacy controls,
+   alerting, and incident/recovery procedures.
+6. **Add financial-product enhancements.** Prioritize new planning, reporting,
+   forecasting, and collaboration features only after identity, ownership,
+   privacy, and recovery boundaries are proven.
 
 ## Current Priority
 
 Next highest-value items:
 
-1. Add observability with structured logs, request IDs, frontend error
-   reporting, and basic metrics.
-2. Split frontend draft state by domain feature.
-3. Add multi-user support after auth and database ownership foundations are
-   mature.
+1. Split frontend draft state by domain feature.
+2. Add real account management and per-user financial ownership with explicit
+   cross-user authorization tests.
+3. Improve product UX, accessibility, responsive behavior, and financial
+   workflows.
+4. Add production hosting, telemetry export, backups, retention, and incident
+   recovery.

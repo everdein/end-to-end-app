@@ -43,6 +43,10 @@ public class ApiSecurityConfig {
                     .permitAll()
                     .requestMatchers("/actuator/health", "/actuator/info")
                     .permitAll()
+                    .requestMatchers("/actuator/metrics", "/actuator/metrics/**")
+                    .hasRole(FINANCIALS_ROLE)
+                    .requestMatchers("/actuator/**")
+                    .denyAll()
                     .requestMatchers("/api/v1/financials/**")
                     .hasRole(FINANCIALS_ROLE)
                     .anyRequest()
@@ -71,8 +75,14 @@ public class ApiSecurityConfig {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(allowedOrigins);
     configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
-    configuration.setExposedHeaders(List.of("Content-Disposition"));
+    configuration.setAllowedHeaders(
+        List.of(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            RequestObservabilityFilter.REQUEST_ID_HEADER));
+    configuration.setExposedHeaders(
+        List.of("Content-Disposition", RequestObservabilityFilter.REQUEST_ID_HEADER));
     configuration.setMaxAge(3_600L);
     return (request) -> configuration;
   }

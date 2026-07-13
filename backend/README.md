@@ -124,7 +124,11 @@ real deployment.
 
 Runtime guardrails:
 
-- only `/actuator/health` and `/actuator/info` are exposed by default
+- `/actuator/health` and `/actuator/info` are public; `/actuator/metrics`
+  requires the financial API credentials, and other Actuator endpoints are
+  denied
+- API calls and responses carry a safe `X-Request-ID`; completion logs contain
+  operational metadata only, never financial values or request bodies
 - backend error responses do not include stack traces or binding internals
 - request bodies above `FINANCIALS_MAX_REQUEST_BYTES` are rejected with `413`
   before controller handling; default is `1048576`
@@ -132,6 +136,10 @@ Runtime guardrails:
   names exact allowed origins
 - activating `prod` requires the `postgres` profile, non-default API
   credentials, and no wildcard CORS origin
+
+See `../docs/observability-guide.md` for request correlation, protected metric
+inspection, production JSON logs, frontend error containment, and data-safety
+rules.
 
 ---
 

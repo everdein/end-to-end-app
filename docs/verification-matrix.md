@@ -25,33 +25,34 @@ skipped; never silently omit a relevant row.
 
 ## Change-to-Check Matrix
 
-| Change surface                  | Targeted iteration checks                             | Completion checks                                         | Additional evidence                                                |
-| ------------------------------- | ----------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------ |
-| Markdown/docs                   | `npm run spell`                                       | Spell check plus referenced paths/commands                | State whether runtime claims were executed or statically verified  |
-| Repository skill                | YAML metadata and linked-reference validation         | `npm run spell`, `git diff --check`                       | Confirm UI metadata names the skill                                |
-| Frontend helper/calculation     | Relevant Vitest file                                  | Full local verification                                   | Boundary/date/financial cases and coverage                         |
-| React component/workflow        | Relevant Testing Library tests, typecheck, lint       | Full local verification                                   | Keyboard, labels, focus, error/empty/loading states                |
-| Redux/API client                | Relevant frontend tests, typecheck                    | Full local verification                                   | Rejected requests, stale state, save/load behavior                 |
-| Backend service/domain          | Focused Maven test                                    | Full local verification                                   | Validation, boundaries, regression test                            |
-| Controller/DTO/API              | Controller/service tests plus frontend typecheck      | Full local verification                                   | Request/response compatibility and Problem Detail behavior         |
-| Audit/history                   | Repository/service/controller tests                   | Full local verification                                   | Version movement, newest-first order, no request-body logging      |
-| CSV/XLSX import/export          | Controller/service tests plus frontend typecheck      | Full local verification                                   | Stale version rejection, fixed columns, no personal data in output |
-| JSON store                      | Store/repository tests                                | Full local verification                                   | Seed, backup, atomic replacement, malformed data                   |
-| PostgreSQL store/config/adapter | Focused integration test                              | `verify-local.ps1 -IncludePostgres`                       | Read-only metadata inspection afterward                            |
-| Migration SQL                   | Review ordered migration and constraints              | Full verification with PostgreSQL                         | Fresh and upgraded isolated schema; Flyway history behavior        |
-| PowerShell scripts              | PowerShell parser plus safest applicable execution    | Full local verification when orchestration changed        | Exit codes, working directory, cleanup, mutation scope             |
-| Dependency/lockfile             | Clean install and affected build/tests                | Full local verification and authenticated security checks | Direct/transitive path, compatibility, both lock files             |
-| GitHub workflow                 | Run exact local equivalents                           | Hosted PR run required                                    | Events, permissions, job dependencies, cache paths, secrets        |
-| Hosted AI workflow              | Review workflow YAML and docs                         | Hosted PR run required                                    | Copilot policy, billing, permissions, non-blocking behavior        |
-| PR/failure summary workflow     | Review workflow YAML, template, and docs              | Hosted PR/run evidence required                           | Summary packets are context, not pass/fail evidence                |
-| Issue workflow                  | Review issue forms and implementation guide           | Hosted issue form rendering                               | Scope, data-safety, acceptance criteria, write boundaries          |
-| Documentation drift             | `scripts/check-documentation-drift.ps1`               | Hosted documentation-drift workflow                       | Drift packets are hints; verify source claims before acting        |
-| Dependency triage               | `scripts/triage-dependency-updates.ps1`               | Dependabot PR plus hosted triage workflow                 | Release notes, lockfiles, security status, compatibility risk      |
-| Scheduled maintenance           | `scripts/generate-engineering-status.ps1`             | Weekly maintenance workflow                               | Packets are advisory; external writes require user intent          |
-| Security configuration          | Focused configuration inspection                      | Authenticated Snyk scan                                   | Tool/auth state, severity threshold, fixed versions                |
-| Accessibility                   | JSX accessibility lint plus focused interaction tests | Full local verification                                   | Manual/browser keyboard and focus review when behavior changed     |
-| Browser workflow                | `scripts/run-browser-checks.ps1`                      | Full local verification plus browser smoke when relevant  | Synthetic data, screenshots/traces only when intentionally shared  |
-| Cross-layer feature             | Narrow checks in every affected layer                 | Full local verification; add PostgreSQL if applicable     | End-to-end contract and persistence parity                         |
+| Change surface                  | Targeted iteration checks                              | Completion checks                                         | Additional evidence                                                |
+| ------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------ |
+| Markdown/docs                   | `npm run spell`                                        | Spell check plus referenced paths/commands                | State whether runtime claims were executed or statically verified  |
+| Repository skill                | YAML metadata and linked-reference validation          | `npm run spell`, `git diff --check`                       | Confirm UI metadata names the skill                                |
+| Frontend helper/calculation     | Relevant Vitest file                                   | Full local verification                                   | Boundary/date/financial cases and coverage                         |
+| React component/workflow        | Relevant Testing Library tests, typecheck, lint        | Full local verification                                   | Keyboard, labels, focus, error/empty/loading states                |
+| Redux/API client                | Relevant frontend tests, typecheck                     | Full local verification                                   | Rejected requests, stale state, save/load behavior                 |
+| Backend service/domain          | Focused Maven test                                     | Full local verification                                   | Validation, boundaries, regression test                            |
+| Controller/DTO/API              | Controller/service tests plus frontend typecheck       | Full local verification                                   | Request/response compatibility and Problem Detail behavior         |
+| Audit/history                   | Repository/service/controller tests                    | Full local verification                                   | Version movement, newest-first order, no request-body logging      |
+| CSV/XLSX import/export          | Controller/service tests plus frontend typecheck       | Full local verification                                   | Stale version rejection, fixed columns, no personal data in output |
+| JSON store                      | Store/repository tests                                 | Full local verification                                   | Seed, backup, atomic replacement, malformed data                   |
+| PostgreSQL store/config/adapter | Focused integration test                               | `verify-local.ps1 -IncludePostgres`                       | Read-only metadata inspection afterward                            |
+| Migration SQL                   | Review ordered migration and constraints               | Full verification with PostgreSQL                         | Fresh and upgraded isolated schema; Flyway history behavior        |
+| PowerShell scripts              | PowerShell parser plus safest applicable execution     | Full local verification when orchestration changed        | Exit codes, working directory, cleanup, mutation scope             |
+| Dependency/lockfile             | Clean install and affected build/tests                 | Full local verification and authenticated security checks | Direct/transitive path, compatibility, both lock files             |
+| GitHub workflow                 | Run exact local equivalents                            | Hosted PR run required                                    | Events, permissions, job dependencies, cache paths, secrets        |
+| Hosted AI workflow              | Review workflow YAML and docs                          | Hosted PR run required                                    | Copilot policy, billing, permissions, non-blocking behavior        |
+| PR/failure summary workflow     | Review workflow YAML, template, and docs               | Hosted PR/run evidence required                           | Summary packets are context, not pass/fail evidence                |
+| Issue workflow                  | Review issue forms and implementation guide            | Hosted issue form rendering                               | Scope, data-safety, acceptance criteria, write boundaries          |
+| Documentation drift             | `scripts/check-documentation-drift.ps1`                | Hosted documentation-drift workflow                       | Drift packets are hints; verify source claims before acting        |
+| Dependency triage               | `scripts/triage-dependency-updates.ps1`                | Dependabot PR plus hosted triage workflow                 | Release notes, lockfiles, security status, compatibility risk      |
+| Scheduled maintenance           | `scripts/generate-engineering-status.ps1`              | Weekly maintenance workflow                               | Packets are advisory; external writes require user intent          |
+| Security configuration          | Focused configuration inspection                       | Authenticated Snyk scan                                   | Tool/auth state, severity threshold, fixed versions                |
+| Observability/correlation       | Filter, security, API-client, and error-boundary tests | Full local verification                                   | No sensitive fields; bounded metric tags; protected Actuator       |
+| Accessibility                   | JSX accessibility lint plus focused interaction tests  | Full local verification                                   | Manual/browser keyboard and focus review when behavior changed     |
+| Browser workflow                | `scripts/run-browser-checks.ps1`                       | Full local verification plus browser smoke when relevant  | Synthetic data, screenshots/traces only when intentionally shared  |
+| Cross-layer feature             | Narrow checks in every affected layer                  | Full local verification; add PostgreSQL if applicable     | End-to-end contract and persistence parity                         |
 
 ## Canonical Commands
 

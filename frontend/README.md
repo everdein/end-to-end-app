@@ -129,6 +129,13 @@ the PostgreSQL database role `financial_app_user`.
 Override these by setting `FINANCIALS_API_USERNAME` and
 `FINANCIALS_API_PASSWORD` before starting the backend.
 
+Each frontend API request includes a generated `X-Request-ID`. Failed requests
+surface the backend-confirmed ID so an error can be matched to backend logs.
+Unexpected render errors are contained by an accessible recovery screen, while
+the local browser reporter records only a reference ID, error category, and
+JavaScript error type. It does not record error messages, stacks, Redux state,
+URLs, credentials, or financial data. See `../docs/observability-guide.md`.
+
 ---
 
 ## Financials UI

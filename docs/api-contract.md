@@ -28,10 +28,16 @@ contains exact allowed origins. Request bodies above
 `FINANCIALS_MAX_REQUEST_BYTES` are rejected with `413 Payload Too Large` before
 controller handling; the local default is `1048576` bytes.
 
-Actuator exposure is intentionally narrow: only `/actuator/health` and
-`/actuator/info` are exposed by default. Activating the `prod` profile requires
-the `postgres` profile, non-default API credentials, and no wildcard CORS
-origin.
+Clients may send `X-Request-ID` using 1–100 letters, numbers, periods,
+underscores, colons, or hyphens. The backend replaces missing or unsafe values
+and returns the final ID in every response header. CORS allows and exposes this
+header for configured origins.
+
+Actuator exposure is intentionally narrow: `/actuator/health` and
+`/actuator/info` are public, `/actuator/metrics` requires financial API
+credentials, and other Actuator endpoints are denied. Activating the `prod`
+profile requires the `postgres` profile, non-default API credentials, and no
+wildcard CORS origin.
 
 ## Endpoints
 
@@ -551,6 +557,7 @@ Validation failures return `400`:
   "status": 400,
   "detail": "Request validation failed",
   "instance": "/api/v1/financials",
+  "requestId": "77a5012a-aeda-47a6-8f2f-1f2314ab50d7",
   "errors": ["bills[0].bill: Bill name is required"]
 }
 ```
@@ -590,6 +597,10 @@ An `IllegalStateException` while processing persistence is converted to `500`
 with title `Persistence failure` and generic detail. Malformed-body and
 persistence errors intentionally avoid echoing internal exception text,
 snapshot contents, or submitted financial values.
+
+Handled Problem Detail responses include the same `requestId` returned in the
+`X-Request-ID` response header. The frontend also includes that ID in API error
+messages so failures can be correlated without copying request data.
 
 ## Compatibility Rules
 

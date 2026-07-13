@@ -2,6 +2,7 @@ package com.example.backend.api;
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -25,7 +26,7 @@ public class ApiExceptionHandler {
             .toList();
     problemDetail.setTitle("Invalid request");
     problemDetail.setProperty("errors", errors);
-    return problemDetail;
+    return withRequestId(problemDetail);
   }
 
   @ExceptionHandler(ConstraintViolationException.class)
@@ -38,7 +39,7 @@ public class ApiExceptionHandler {
             .toList();
     problemDetail.setTitle("Invalid request");
     problemDetail.setProperty("errors", errors);
-    return problemDetail;
+    return withRequestId(problemDetail);
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -47,7 +48,7 @@ public class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(
             HttpStatus.BAD_REQUEST, "Request body is malformed or cannot be parsed");
     problemDetail.setTitle("Malformed request");
-    return problemDetail;
+    return withRequestId(problemDetail);
   }
 
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
@@ -58,7 +59,7 @@ public class ApiExceptionHandler {
     problemDetail.setTitle("Invalid request");
     problemDetail.setProperty(
         "errors", List.of(exception.getName() + ": expected " + expectedType(exception)));
-    return problemDetail;
+    return withRequestId(problemDetail);
   }
 
   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
@@ -67,7 +68,7 @@ public class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(
             HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Content-Type is not supported for this endpoint");
     problemDetail.setTitle("Unsupported media type");
-    return problemDetail;
+    return withRequestId(problemDetail);
   }
 
   @ExceptionHandler(ResponseStatusException.class)
@@ -75,7 +76,7 @@ public class ApiExceptionHandler {
     ProblemDetail problemDetail =
         ProblemDetail.forStatusAndDetail(exception.getStatusCode(), exception.getReason());
     problemDetail.setTitle(exception.getStatusCode().toString());
-    return problemDetail;
+    return withRequestId(problemDetail);
   }
 
   @ExceptionHandler(IllegalStateException.class)
@@ -84,6 +85,14 @@ public class ApiExceptionHandler {
         ProblemDetail.forStatusAndDetail(
             HttpStatus.INTERNAL_SERVER_ERROR, "The financial snapshot could not be processed");
     problemDetail.setTitle("Persistence failure");
+    return withRequestId(problemDetail);
+  }
+
+  private ProblemDetail withRequestId(ProblemDetail problemDetail) {
+    String requestId = MDC.get("requestId");
+    if (requestId != null) {
+      problemDetail.setProperty("requestId", requestId);
+    }
     return problemDetail;
   }
 
