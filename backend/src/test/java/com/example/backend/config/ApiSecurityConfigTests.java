@@ -1,5 +1,6 @@
 package com.example.backend.config;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -57,15 +58,41 @@ class ApiSecurityConfigTests {
   }
 
   @Test
+  void protectsMetricsWithFinancialApiCredentials() throws Exception {
+    mockMvc.perform(get("/actuator/metrics")).andExpect(status().isUnauthorized());
+
+    mockMvc
+        .perform(get("/actuator/metrics").with(httpBasic("test-user", "test-password")))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.names").isArray());
+  }
+
+  @Test
+  void correlatesApiErrorsWithoutExposingAChallenge() throws Exception {
+    mockMvc
+        .perform(
+            put("/api/v1/financials")
+                .with(httpBasic("test-user", "test-password"))
+                .header("X-Request-ID", "client-request-123")
+                .contentType("application/json")
+                .content("{"))
+        .andExpect(status().isBadRequest())
+        .andExpect(header().string("X-Request-ID", "client-request-123"))
+        .andExpect(jsonPath("$.requestId").value("client-request-123"));
+  }
+
+  @Test
   void allowsConfiguredCorsPreflightRequests() throws Exception {
     mockMvc
         .perform(
             options("/api/v1/financials")
                 .header("Origin", "http://localhost:3000")
                 .header("Access-Control-Request-Method", "PUT")
-                .header("Access-Control-Request-Headers", "Authorization, Content-Type"))
+                .header(
+                    "Access-Control-Request-Headers", "Authorization, Content-Type, X-Request-ID"))
         .andExpect(status().isOk())
-        .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"));
+        .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:3000"))
+        .andExpect(header().string("Access-Control-Allow-Headers", containsString("X-Request-ID")));
   }
 
   @Test

@@ -70,7 +70,7 @@ Phase C is complete.
 
 ## Phase D - Make It Operable
 
-- [ ] Add a vendor-neutral observability foundation with structured logs,
+- [x] Add a vendor-neutral observability foundation with structured logs,
       request IDs, frontend error containment, and safe application metrics.
 - [ ] Connect logs, errors, and metrics to a production telemetry provider once
       the hosting platform and data-retention policy are selected.
@@ -107,12 +107,10 @@ Complete these product phases in order after the local observability foundation:
 
 Next highest-value items:
 
-1. Add observability with structured logs, request IDs, frontend error
-   reporting, and basic metrics.
-2. Split frontend draft state by domain feature.
-3. Add real account management and per-user financial ownership with explicit
+1. Split frontend draft state by domain feature.
+2. Add real account management and per-user financial ownership with explicit
    cross-user authorization tests.
-4. Improve product UX, accessibility, responsive behavior, and financial
+3. Improve product UX, accessibility, responsive behavior, and financial
    workflows.
-5. Add production hosting, telemetry export, backups, retention, and incident
+4. Add production hosting, telemetry export, backups, retention, and incident
    recovery.

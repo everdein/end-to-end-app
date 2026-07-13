@@ -359,6 +359,19 @@ through approved tooling; never print `SNYK_TOKEN`.
 Classify it as external-service failure. Preserve the service error, retry only
 when appropriate, and keep the security gate pending.
 
+## Correlating Application Failures
+
+When the frontend displays a request ID, find the backend completion log with
+the same `requestId`. Compare its route pattern, status, and duration with
+`/actuator/metrics/http.server.requests`; use snapshot save/import counters for
+operation-level outcomes. The metrics endpoint requires financial API
+credentials. Frontend `web-...` references identify contained browser errors
+but are not backend request IDs.
+
+Follow `docs/observability-guide.md`. Do not copy request bodies, response
+bodies containing financial data, credentials, full URLs with query values,
+Redux state, snapshots, or exports into logs or escalation bundles.
+
 ## Escalation Bundle
 
 When handing a problem to another person or agent, include:

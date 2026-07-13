@@ -35,6 +35,7 @@ the single aggregate immediately.
 | `frontend/src/app/`                                   | Redux store and typed hooks                           |
 | `frontend/src/api/client.ts`                          | Fetch wrapper and HTTP error handling                 |
 | `frontend/src/api/endpoints/financials.ts`            | API contract types and endpoint calls                 |
+| `frontend/src/observability/`                         | Error containment, safe local reporting, recovery UI  |
 | `frontend/src/features/financials/FinancialsPage.tsx` | Workspace orchestration and local draft state         |
 | `frontend/src/features/financials/*Tab.tsx`           | Tab-level presentation and interactions               |
 | `financialsDraft.ts`                                  | Draft conversion, normalization, and request building |
@@ -81,20 +82,27 @@ flowchart TD
 | `PostgresFinancialRecordSnapshotAdapter` | Tested V3/V4 relational save/load and granular CRUD path for the domain aggregate | Active runtime persistence            |
 | `config/`                                | Bound persistence configuration                                                   | Domain behavior                       |
 
+`config/RequestObservabilityFilter` validates or creates request IDs, records
+safe request completion metadata, and increments low-cardinality snapshot
+outcome counters. Spring Boot supplies standard HTTP/JVM metrics. Metrics are
+credential-protected; only health and info remain public. The production
+profile emits Logstash-compatible JSON, while local profiles retain readable
+console output.
+
 The granular record and pay-period routes use the same repository aggregate as
 the full snapshot route. The current UI uses the full snapshot as its primary
 save boundary.
 
 ## Persistence Profiles
 
-| Concern            | JSON profile                                        | PostgreSQL profile                                       |
-| ------------------ | --------------------------------------------------- | -------------------------------------------------------- |
-| Activation         | Default profile                                     | `SPRING_PROFILES_ACTIVE=postgres`                        |
-| Adapter            | `JsonFinancialsSnapshotStore`                       | `PostgresFinancialsSnapshotStore`                        |
+| Concern            | JSON profile                                                        | PostgreSQL profile                                                         |
+| ------------------ | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Activation         | Default profile                                                     | `SPRING_PROFILES_ACTIVE=postgres`                                          |
+| Adapter            | `JsonFinancialsSnapshotStore`                                       | `PostgresFinancialsSnapshotStore`                                          |
 | Active data        | `backend/data/financials.local.json` with version and audit history | `financial_snapshot_document.snapshot_json` plus version and audit history |
-| Seed source        | `financials.example.json` when local file is absent | Local JSON, then example JSON when no active row exists  |
-| Schema             | None                                                | Flyway migrations under `db/migration/`                  |
-| Local verification | Standard backend tests                              | Opt-in isolated-schema integration test                  |
+| Seed source        | `financials.example.json` when local file is absent                 | Local JSON, then example JSON when no active row exists                    |
+| Schema             | None                                                                | Flyway migrations under `db/migration/`                                    |
+| Local verification | Standard backend tests                                              | Opt-in isolated-schema integration test                                    |
 
 `V1__create_financials_schema.sql` defines normalized tables that remain
 inactive historical groundwork. ADR 0009 decides they should not become the
@@ -212,6 +220,7 @@ infrastructure.
 - Change verification: `docs/verification-matrix.md`
 - Accepted gaps and revisit triggers: `docs/known-limitations.md`
 - Symptom-driven diagnosis: `docs/troubleshooting-decision-tree.md`
+- Logs, metrics, and request correlation: `docs/observability-guide.md`
 - External connector and MCP boundaries: `docs/mcp-integration-guide.md`
 - API and backend operations: `backend/README.md`
 - Frontend development: `frontend/README.md`

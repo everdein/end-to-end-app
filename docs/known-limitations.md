@@ -272,13 +272,15 @@ changes in a new ADR.
 - **Current mitigation:** Do not describe the workflow as a release path.
 - **Revisit when:** A concrete hosting target and operational owner exist.
 
-### LIM-024 — No production observability or incident workflow
+### LIM-024 — No centralized production telemetry or incident workflow
 
 - **Status:** Intentional until deployment exists
-- **Impact:** There are no centralized logs, metrics, traces, alerts,
+- **Impact:** The local observability foundation does not export logs, metrics,
+  browser errors, or traces to a shared service. There are no alerts,
   dashboards, retention policy, or incident response integration.
-- **Current mitigation:** Local logs, test output, and a minimal actuator
-  surface.
+- **Current mitigation:** Correlated request IDs, safe completion logs,
+  production JSON formatting, protected local metrics, frontend error
+  containment, and `docs/observability-guide.md`.
 - **Revisit when:** A persistent shared environment is introduced.
 
 ### LIM-025 — Request-size guard depends on declared content length

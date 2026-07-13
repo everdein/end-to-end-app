@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 
 import { clearApiCredentials, hasApiCredentials, saveApiCredentials } from './api/auth';
+import { ApiError } from './api/client';
 import { financialsService } from './api/endpoints/financials';
 import FinancialsPage from './features/financials/FinancialsPage';
 
@@ -91,13 +92,14 @@ export default function App() {
 
 function signInFailureMessage(error: unknown) {
   const message = error instanceof Error ? error.message : '';
+  const reference = error instanceof ApiError ? ` Reference: ${error.requestId}.` : '';
 
   if (message.includes('HTTP 401')) {
-    return 'The app credentials were not accepted. Use the local API username and password, not the PostgreSQL database user.';
+    return `The app credentials were not accepted. Use the local API username and password, not the PostgreSQL database user.${reference}`;
   }
 
   if (message.includes('HTTP 502')) {
-    return 'The frontend could not reach the backend. Start or restart the backend, then try signing in again.';
+    return `The frontend could not reach the backend. Start or restart the backend, then try signing in again.${reference}`;
   }
 
   if (message) {
