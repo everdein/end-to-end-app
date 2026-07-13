@@ -25,6 +25,7 @@
              features and coverage tooling supports the selected class version. -->
         <maven.compiler.release>21</maven.compiler.release>
         <logback.version>1.5.36</logback.version>
+        <log4j2.version>2.26.1</log4j2.version>
         <postgresql.version>42.7.12</postgresql.version>
         <sortpom.version>4.0.0</sortpom.version>
         <spotless.version>3.8.0</spotless.version>
@@ -51,6 +52,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+            <!-- Only health/info endpoints are enabled. Exclude the optional
+                 percentile histogram runtime until it has a patched release. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.hdrhistogram</groupId>
+                    <artifactId>HdrHistogram</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

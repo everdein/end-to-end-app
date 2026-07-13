@@ -36,8 +36,8 @@ class PostgresFinancialRecordSnapshotAdapterIT {
   void setUp() throws IOException {
     DriverManagerDataSource dataSource = new DriverManagerDataSource();
     dataSource.setUrl(withCurrentSchema(databaseUrl(), TEST_SCHEMA));
-    dataSource.setUsername(environmentOrDefault("DATABASE_USERNAME", "financial_app_user"));
-    dataSource.setPassword(environmentOrDefault("DATABASE_PASSWORD", "financial_app_password"));
+    dataSource.setUsername(requiredEnvironment("DATABASE_USERNAME"));
+    dataSource.setPassword(requiredEnvironment("DATABASE_PASSWORD"));
 
     jdbcTemplate = new JdbcTemplate(dataSource);
     jdbcTemplate.execute("create schema if not exists " + TEST_SCHEMA);
@@ -303,5 +303,13 @@ class PostgresFinancialRecordSnapshotAdapterIT {
   private String environmentOrDefault(String name, String defaultValue) {
     String value = System.getenv(name);
     return value == null || value.isBlank() ? defaultValue : value;
+  }
+
+  private String requiredEnvironment(String name) {
+    String value = System.getenv(name);
+    if (value == null || value.isBlank()) {
+      throw new IllegalStateException(name + " must be set for PostgreSQL integration tests");
+    }
+    return value;
   }
 }

@@ -62,9 +62,11 @@ Phase B is complete.
 
 ## Phase C - Make It Impressive
 
-- [ ] Add CodeQL and GitHub dependency review.
-- [ ] Pin or otherwise standardize the Snyk CLI/action used by CI so scan
+- [x] Add CodeQL and GitHub dependency review.
+- [x] Pin or otherwise standardize the Snyk CLI/action used by CI so scan
       failures are reproducible.
+
+Phase C is complete.
 
 ## Future Scaling
 
@@ -78,5 +80,8 @@ Phase B is complete.
 
 Next highest-value items:
 
-1. Add CodeQL and GitHub dependency review.
-2. Pin or otherwise standardize the Snyk CLI/action used by CI.
+1. Add observability with structured logs, request IDs, frontend error
+   reporting, and basic metrics.
+2. Split frontend draft state by domain feature.
+3. Add multi-user support after auth and database ownership foundations are
+   mature.

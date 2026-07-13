@@ -7,6 +7,20 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 
+if ($IncludePostgres) {
+    $missingPostgresVariables = @(
+        "DATABASE_USERNAME",
+        "DATABASE_PASSWORD"
+    ) | Where-Object { [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_)) }
+
+    if ($missingPostgresVariables.Count -gt 0) {
+        throw (
+            "PostgreSQL verification requires these environment variables: " +
+            ($missingPostgresVariables -join ", ")
+        )
+    }
+}
+
 function Invoke-Step {
     param(
         [Parameter(Mandatory = $true)]

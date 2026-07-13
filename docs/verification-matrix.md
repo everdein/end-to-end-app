@@ -131,7 +131,10 @@ The verification option runs `PostgresFinancialsSnapshotStoreIT` and
 `PostgresFinancialRecordSnapshotAdapterIT` against fixed isolated schemas,
 truncates or recreates their test tables, and drops those schemas afterward. Do
 not use it where those schema names belong to another application. Inspection
-is read-only and reports metadata rather than financial values.
+is read-only and reports metadata rather than financial values. Set
+`DATABASE_USERNAME` and `DATABASE_PASSWORD` in the current shell before running
+the PostgreSQL verification; the integration tests intentionally have no
+embedded credential defaults.
 
 PostgreSQL verification is required for changes to:
 
@@ -164,10 +167,16 @@ unit/service coverage, PostgreSQL verification, or full local verification.
 .\scripts\run-security-checks.ps1
 ```
 
-This requires network access, the Snyk CLI, and `SNYK_TOKEN`. It runs root and
-frontend npm audits plus authenticated Snyk discovery across all projects.
-Missing tooling/authentication or an unavailable service is a skipped/failed
-check, not a pass.
+This requires network access, the Snyk CLI version recorded in
+`.snyk-cli-version`, and `SNYK_TOKEN`. It runs root and frontend npm audits plus
+authenticated Snyk discovery across all projects. A missing or mismatched CLI,
+missing authentication, or an unavailable service is a skipped/failed check,
+not a pass.
+
+CI reads the same pin, installs that exact npm package version, verifies
+`snyk --version`, and then scans. For a Snyk upgrade, update the pin, install
+the matching local CLI or direct binary, run this command, and verify the
+hosted pull-request scan. Do not replace the pin with `latest`.
 
 Dependabot-triggered GitHub Actions runs may not receive repository secrets.
 For those runs, the hosted CI scan job skips the internal Snyk CLI step with a
@@ -180,6 +189,15 @@ propose upgrades, but it does not replace the security script or hosted CI
 gate. When MCP/API is used, report the Snyk tool, profile, auth state, scanned
 manifest, advisory identifier, fixed version, and skipped/unavailable checks
 without exposing token values.
+
+GitHub CodeQL analyzes Java and JavaScript/TypeScript on pull requests, pushes
+to `main`, a weekly schedule, and manual dispatches. Review the uploaded code
+scanning alerts as well as the workflow result: successful analysis confirms
+that results were uploaded, not that there are no alerts. GitHub Dependency
+Review runs only on pull requests and blocks newly introduced high- or
+critical-severity vulnerabilities across runtime, development, and unknown
+dependency scopes. These hosted checks depend on GitHub repository data and do
+not have complete local equivalents.
 
 ### Documentation and diff hygiene
 

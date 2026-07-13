@@ -13,7 +13,11 @@ subproject README before changing frontend, backend, database, or CI behavior.
 - `backend/data/financials.local.json` plus `.bak`/`.tmp` siblings: ignored
   local data; never commit them.
 - `backend/src/main/resources/db/migration/`: PostgreSQL schema migrations.
-- `.github/workflows/ci.yml`: GitHub Actions and Snyk pipeline.
+- `.github/workflows/ci.yml`: build, test, coverage, and Snyk pipeline.
+- `.github/workflows/codeql.yml`: hosted Java and JavaScript/TypeScript code
+  scanning.
+- `.github/workflows/dependency-review.yml`: pull-request dependency-diff
+  vulnerability gate.
 - `scripts/`: repeatable local setup, verification, and inspection commands.
 
 The application edits and saves one financial snapshot aggregate. The default
@@ -131,6 +135,10 @@ From the repository root:
 
 Run `.\scripts\run-security-checks.ps1` only when authenticated tooling and
 network access are available. CI is authoritative for GitHub-hosted behavior.
+`.snyk-cli-version` is the single source of truth for the Snyk CLI version used
+locally and in CI. Update that file intentionally, install the matching CLI,
+and rerun authenticated scans when upgrading Snyk; do not use `snyk@latest` in
+repository security gates.
 All required CI jobs must pass; do not bypass checks. Treat high-severity Snyk
 findings as blocking unless the repository owner explicitly accepts and records
 the risk. A missing `SNYK_TOKEN`, unavailable service, or unauthenticated scan
@@ -138,6 +146,12 @@ is not a pass. For Dependabot-triggered workflows, GitHub Actions may withhold
 repository secrets; in that case, treat the internal Snyk CLI step as skipped
 and rely on the external Snyk PR check or an owner-approved manual rerun for
 security evidence.
+CodeQL is a hosted Java and JavaScript/TypeScript scan; inspect uploaded alerts
+in GitHub rather than treating workflow completion as proof that no alerts
+exist. Dependency Review blocks pull requests that introduce high- or
+critical-severity vulnerabilities in runtime, development, or unknown scopes.
+Both checks require GitHub's repository security features and cannot be
+reproduced fully by the local verification scripts.
 Copilot review requests are assistive and non-blocking. Copilot comments must
 be validated against code, tests, docs, and data-safety rules before action.
 PR and CI failure summary packets are context only; they do not prove hosted

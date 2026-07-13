@@ -39,7 +39,8 @@ changes in a new ADR.
   abuse, secret scanning, dynamic testing, infrastructure, or manual threat
   modeling.
 - **Current mitigation:** Least-privilege CI permissions, review checklists,
-  high-severity Snyk gate, and local data-handling rules.
+  high-severity Snyk and dependency-review gates, hosted CodeQL analysis, and
+  local data-handling rules.
 - **Revisit when:** Preparing any deployment or handling data beyond the local
   developer.
 
@@ -253,15 +254,15 @@ changes in a new ADR.
 - **Revisit when:** Browser testing is added or the application is prepared for
   broader use.
 
-### LIM-022 — Snyk CLI version is not pinned in CI
+### LIM-022 — Snyk CLI version drift
 
-- **Status:** Known reproducibility gap
-- **Impact:** A new global CLI release can change project discovery, output, or
-  failure behavior without a repository change.
-- **Current mitigation:** Hosted high-severity gate, CI triage workflow, local
-  security script, and documented Snyk MCP/API boundaries.
-- **Revisit when:** The scan job is next modified or a Snyk API automation is
-  added; pin or otherwise standardize the scanner.
+- **Status:** Resolved on 2026-07-13
+- **Resolution:** `.snyk-cli-version` is the repository source of truth. CI
+  installs and verifies that exact npm package version, and the local security
+  script rejects a different installed CLI before scanning.
+- **Upgrade rule:** Change the pin intentionally, install the matching local
+  CLI or direct binary, run the authenticated local security checks, and
+  verify the hosted pull-request scan.
 
 ### LIM-023 — Deployment is a placeholder
 

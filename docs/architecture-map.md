@@ -164,15 +164,20 @@ flowchart LR
     Local --> Backend["Formatting + tests<br/>JaCoCo + package"]
     Local -->|"optional"| PGTest["Isolated PostgreSQL smoke test"]
     Change -->|"authenticated"| Security["run-security-checks.ps1"]
+    Change --> HostedSecurity["CodeQL + dependency review"]
     Frontend --> CI["GitHub Actions"]
     Backend --> CI
     Security --> CI
+    HostedSecurity --> CI
     CI --> Draft["Draft PR review"]
 ```
 
 GitHub Actions repeats frontend quality gates, frontend and backend builds,
-coverage, and an authenticated high-severity Snyk scan. The deploy job is a
-manual placeholder, not production infrastructure.
+coverage, and an authenticated high-severity Snyk scan. Separate hosted
+workflows run CodeQL for Java and JavaScript/TypeScript and review pull-request
+dependency changes for newly introduced high- or critical-severity
+vulnerabilities. The deploy job is a manual placeholder, not production
+infrastructure.
 
 ## Data Boundaries
 
@@ -186,17 +191,17 @@ manual placeholder, not production infrastructure.
 
 ## Change Routing
 
-| Change                           | Start here                                 | Also inspect                                              |
-| -------------------------------- | ------------------------------------------ | --------------------------------------------------------- |
-| UI interaction or draft behavior | `frontend/src/features/financials/`        | Slice, API types, accessibility, tests                    |
-| HTTP contract                    | Controller and DTOs                        | Frontend endpoint types, service, contract tests, docs    |
-| CSV/XLSX import/export           | `FinancialSnapshotTabularCodec`            | Controller/service tests, API docs, data-safety rules     |
-| Financial/date rule              | Backend service or focused frontend helper | Both presentation and persistence assumptions             |
-| JSON behavior                    | `JsonFinancialsSnapshotStore`              | PostgreSQL parity and seed policy                         |
-| PostgreSQL behavior              | Store plus additive migration              | JSON parity, isolated integration test, storage docs      |
-| Audit/history behavior           | `FinancialsRepository` and audit DTOs      | API docs, storage guide, data-safety rules                |
-| CI/security                      | `.github/workflows/ci.yml`                 | Local scripts, lock files, permissions, Snyk expectations |
-| Architecture decision            | Owning code plus new ADR                   | Architecture map, limitations, affected READMEs           |
+| Change                           | Start here                                 | Also inspect                                                     |
+| -------------------------------- | ------------------------------------------ | ---------------------------------------------------------------- |
+| UI interaction or draft behavior | `frontend/src/features/financials/`        | Slice, API types, accessibility, tests                           |
+| HTTP contract                    | Controller and DTOs                        | Frontend endpoint types, service, contract tests, docs           |
+| CSV/XLSX import/export           | `FinancialSnapshotTabularCodec`            | Controller/service tests, API docs, data-safety rules            |
+| Financial/date rule              | Backend service or focused frontend helper | Both presentation and persistence assumptions                    |
+| JSON behavior                    | `JsonFinancialsSnapshotStore`              | PostgreSQL parity and seed policy                                |
+| PostgreSQL behavior              | Store plus additive migration              | JSON parity, isolated integration test, storage docs             |
+| Audit/history behavior           | `FinancialsRepository` and audit DTOs      | API docs, storage guide, data-safety rules                       |
+| CI/security                      | `.github/workflows/*.yml`                  | Local scripts, lock files, permissions, hosted scan expectations |
+| Architecture decision            | Owning code plus new ADR                   | Architecture map, limitations, affected READMEs                  |
 
 ## Authoritative References
 

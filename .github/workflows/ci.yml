@@ -219,7 +219,29 @@ jobs:
 
       - name: Install Snyk CLI
         if: steps.snyk-token.outputs.available == 'true'
-        run: npm install -g snyk
+        id: snyk-cli
+        run: |
+          version="$(tr -d '[:space:]' < .snyk-cli-version)"
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error title=Invalid Snyk CLI pin::.snyk-cli-version must contain one semantic version."
+            exit 1
+          fi
+
+          npm install -g "snyk@${version}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Verify Snyk CLI version
+        if: steps.snyk-token.outputs.available == 'true'
+        env:
+          SNYK_CLI_VERSION: ${{ steps.snyk-cli.outputs.version }}
+        run: |
+          actual="$(snyk --version)"
+          if [ "${actual}" != "${SNYK_CLI_VERSION}" ]; then
+            echo "::error title=Snyk CLI version mismatch::Expected ${SNYK_CLI_VERSION}, received ${actual}."
+            exit 1
+          fi
+
+          echo "Using pinned Snyk CLI ${actual}."
 
       - name: Snyk test
         if: steps.snyk-token.outputs.available == 'true'

@@ -693,9 +693,13 @@ cd backend
 ### PostgreSQL profile smoke test
 
 After local PostgreSQL setup, this command runs the snapshot-store and V3/V4
-record-adapter integration tests in dedicated isolated schemas:
+record-adapter integration tests in dedicated isolated schemas. Set the
+dedicated local application-role credentials in the current shell first; the
+tests do not contain fallback credentials:
 
 ```powershell
+$env:DATABASE_USERNAME = "<local app database user>"
+$env:DATABASE_PASSWORD = "<local app database password>"
 .\scripts\verify-local.ps1 -IncludePostgres
 ```
 
@@ -711,7 +715,8 @@ root:
 ```
 
 When a change affects PostgreSQL configuration, serialization, migrations, or
-storage behavior:
+storage behavior, set `DATABASE_USERNAME` and `DATABASE_PASSWORD` for the local
+application role before running:
 
 ```powershell
 .\scripts\verify-local.ps1 -IncludePostgres
@@ -723,8 +728,10 @@ Run networked security checks separately:
 .\scripts\run-security-checks.ps1
 ```
 
-This runs npm audits and an authenticated Snyk scan. It requires the Snyk CLI,
-`SNYK_TOKEN`, and network access; CI remains the canonical Snyk environment.
+This runs npm audits and an authenticated Snyk scan. It requires the Snyk CLI
+version recorded in `.snyk-cli-version`, `SNYK_TOKEN`, and network access; CI
+installs the same exact CLI version. A local version mismatch fails before the
+audits begin. CI remains the canonical hosted Snyk environment.
 The older `.\scripts\verify.ps1` entry point remains as a compatibility wrapper.
 
 Run the opt-in browser workflow smoke test with Playwright:
@@ -949,6 +956,8 @@ GitHub Actions currently validates:
 - frontend builds
 - backend builds
 - Snyk dependency/security scans
+- CodeQL analysis for Java and JavaScript/TypeScript
+- dependency review for pull-request dependency changes
 
 The scan job expects `SNYK_TOKEN` to be configured for both Actions and
 Dependabot secrets. `NVD_API_KEY` is not used by the current workflow. If a
@@ -956,6 +965,20 @@ restricted event or misconfiguration prevents the workflow from receiving
 `SNYK_TOKEN`, Dependabot-triggered runs skip the internal Snyk CLI step with a
 warning and should be evaluated against the external Snyk PR check or a manual
 rerun.
+
+The scan job reads `.snyk-cli-version`, installs that exact npm package
+version, verifies the installed version, and only then runs `snyk test`. To
+upgrade the scanner, change the pin intentionally, install the matching local
+CLI or direct binary, run `.\scripts\run-security-checks.ps1`, and verify the
+hosted pull-request scan.
+
+CodeQL runs for pull requests, pushes to `main`, a weekly schedule, and manual
+dispatches. It uploads Java and JavaScript/TypeScript findings to GitHub code
+scanning; a completed analysis means results were uploaded, not necessarily
+that the repository has no alerts. Dependency Review runs on pull requests and
+fails when a dependency change introduces a high- or critical-severity
+vulnerability in runtime, development, or unknown scope. These are hosted
+GitHub checks and have no complete local equivalent.
 
 ---
 
