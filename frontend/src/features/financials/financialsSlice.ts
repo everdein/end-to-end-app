@@ -20,10 +20,17 @@ const initialState: FinancialsState = {
   error: null,
 };
 
-export const fetchMonthlyExpenses = createAsyncThunk(
+export const fetchMonthlyExpenses = createAsyncThunk<
+  ExpenseSnapshot,
+  void,
+  { state: { financials: FinancialsState } }
+>(
   'financials/fetchMonthlyExpenses',
   async () => {
     return await financialsService.getMonthlyExpenses();
+  },
+  {
+    condition: (_, { getState }) => getState().financials.status !== 'loading',
   }
 );
 

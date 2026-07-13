@@ -254,6 +254,18 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /add account/i })).toBeInTheDocument();
   });
 
+  it('edits an asset account and recalculates its draft total', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /retirement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /edit 401k 10%/i }));
+    fireEvent.change(screen.getByLabelText(/^amount$/i), { target: { value: '110700' } });
+    fireEvent.click(screen.getByRole('button', { name: /update draft/i }));
+
+    expect(screen.getAllByText('$110,700.00')).toHaveLength(2);
+    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
+  });
+
   it('renders income calendar and important dates tabs', () => {
     render(<App />);
 
@@ -350,6 +362,25 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /^debt$/i })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: /^apple$/i })).toBeInTheDocument();
     expect(screen.getAllByText('$2,130.03')).not.toHaveLength(0);
+  });
+
+  it('edits a debt account and recalculates the draft total', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^debt$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /edit apple/i }));
+    fireEvent.change(screen.getByLabelText(/^balance$/i), { target: { value: '2000' } });
+    fireEvent.click(screen.getByRole('button', { name: /update draft/i }));
+
+    expect(
+      within(screen.getByRole('region', { name: /debt summary/i })).getByText('$2,000.00')
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('table', { name: /debt balances/i })).getByRole('cell', {
+        name: '$2,000.00',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
   });
 
   it('locks projection anchors and confirms before removing non-anchor withdrawals', () => {
