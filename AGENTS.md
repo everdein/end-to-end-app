@@ -9,10 +9,9 @@ subproject README before changing frontend, backend, database, or CI behavior.
 
 - `frontend/`: React 19, TypeScript, Redux Toolkit, Vite, and Vitest.
 - `backend/`: Java 21, Spring Boot 4, Maven, Spring JDBC, and JaCoCo.
-- `backend/data/financials.example.json`: committed synthetic test/demo and
-  explicit migration input.
-- `backend/data/financials.local.json` plus `.bak`/`.tmp` siblings: ignored
-  legacy local data; never commit them or treat them as runtime storage.
+- `backend/data/financials.example.json`: committed synthetic test/demo input.
+- `backend/data/*.local.json` plus `.bak`/`.tmp` siblings: ignored obsolete
+  local artifacts; never commit them or treat them as supported input.
 - `backend/src/main/resources/db/migration/`: PostgreSQL schema migrations.
 - `.github/workflows/ci.yml`: build, test, coverage, and Snyk pipeline.
 - `.github/workflows/codeql.yml`: hosted Java and JavaScript/TypeScript code
@@ -22,10 +21,11 @@ subproject README before changing frontend, backend, database, or CI behavior.
 - `scripts/`: repeatable local setup, verification, and inspection commands.
 
 The application edits and saves one financial snapshot aggregate in the
-V3/V4/V6/V7/V8/V9 PostgreSQL `financial_record_*` relational tables, scoped to the
+V3/V4/V6-V11 PostgreSQL `financial_record_*` relational tables, scoped to the
 workspace selected from a V5 account session. The V1 normalized tables are
-inactive historical groundwork and are not the runtime persistence path. V2
-`financial_snapshot_document` is now a legacy migration source only. The
+inactive historical groundwork and are not the runtime persistence path. V10
+removes the retired V2 JSONB store, V7 migration ledger, and source linkage;
+V11 removes unowned compatibility rows and requires workspace ownership. The
 runtime loads current snapshots separately from SQL-limited audit history and
 appends one audit event while batch-writing each aggregate replacement. The
 snapshot stores typed projection roles for its rent bill, rent-reserve asset
@@ -40,8 +40,8 @@ financial application exceptions to HTTP statuses.
 Workspace initialization returns its successfully created aggregate for shared
 response presentation without a follow-up persistence read.
 The frontend uses signup, sign-in, session recovery, sign-out, CSRF bootstrap,
-and explicit workspace selection against that PostgreSQL API. Legacy Basic
-authentication remains only for operator migration and metrics routes.
+and explicit workspace selection against that PostgreSQL API. Basic
+authentication remains only for protected metrics routes.
 
 ## Directory Ownership
 
@@ -113,10 +113,11 @@ a branch, implementation, verification report, or draft PR.
 - Treat financial values and local database contents as sensitive.
 - Use only read-only SQL for investigation. Ask before changing local data.
 - Never expose tokens, database passwords, or other secrets.
-- Keep migrations additive. Do not edit an applied migration.
+- Keep migration history additive. Do not edit an applied migration.
 - Keep frontend draft/save and backend persistence behavior aligned.
 - Add focused tests for changed behavior and regression tests for bug fixes.
-- Do not silently normalize or discard persisted financial records.
+- Do not silently normalize or discard persisted financial records; destructive
+  retirement requires an explicit owner decision and an additive migration.
 
 ## Coding Conventions
 
@@ -152,8 +153,6 @@ From the repository root:
 .\scripts\run-security-checks.ps1
 .\scripts\inspect-postgres.ps1
 .\scripts\migrate-postgres.ps1
-.\scripts\migrate-financial-snapshot-to-workspace.ps1 -Source <json-file|jsonb-document> -BackupPath <outside-repo-path> -DestinationEmail <email> -WorkspaceId <id> -ConfirmMigration
-.\scripts\rollback-workspace-snapshot-migration.ps1 -MigrationId <uuid> -ConfirmRollback
 .\scripts\setup-postgres-readonly-role.ps1
 .\scripts\run-browser-checks.ps1
 .\scripts\capture-portfolio-evidence.ps1
@@ -204,16 +203,16 @@ or security policy from a packet alone.
 - `backend/data/financials.example.json` is synthetic mock data and is the only
   financial dataset intended for source control, fixtures, screenshots, and
   shared bug reports.
-- `backend/data/financials.local.json`, PostgreSQL contents, exports, logs, and
-  screenshots may contain personal data. Do not commit, paste, summarize, or
-  send them to external services.
+- Ignored local JSON, PostgreSQL contents, exports, logs, and screenshots may
+  contain personal data. Do not commit, paste, summarize, or send them to
+  external services.
 - JSON snapshot exports are application backup/restore artifacts. Store them
   outside the repository unless the data is synthetic and
   `-AllowRepositoryPath` is intentional.
 - Prefer metadata, counts, keys, and redacted/minimal reproductions when
   diagnosing personal data. Ask before reading full local records.
-- Never replace personal local data with mock data, seed over it, or migrate it
-  implicitly. Backups and destructive operations require explicit approval.
+- Never replace personal local data with mock data or seed over it implicitly.
+  Backups and destructive operations require explicit approval.
 
 ## Intentional Limitations
 
@@ -222,10 +221,10 @@ or security policy from a packet alone.
   deployment infrastructure and external API integrations remain incomplete.
 - Full-snapshot saves use optimistic version checks and are the sole supported
   financial mutation boundary.
-- PostgreSQL persists active runtime data in the V3/V4/V6/V7/V8/V9
+- PostgreSQL persists active runtime data in the V3/V4/V6-V11
   `financial_record_*` tables with relational audit history and optimistic
-  workspace writes. V1 normalized tables remain inactive; V2 JSONB is retained
-  only for explicit backup/migration and rollback evidence.
+  workspace writes. V1 normalized tables remain inactive; V2 JSONB and its
+  transition administration are retired by V10/V11.
 - PostgreSQL setup is explicit, while local and hosted completion gates require
   isolated PostgreSQL integration tests.
 - The deploy workflow is a manual placeholder, not a production release path.
@@ -251,7 +250,7 @@ or security policy from a packet alone.
   financial/date behavior, and frontend test review.
 - `backend-api-reviewer`: read-only Spring controller, DTO, validation,
   service-rule, aggregate-semantics, and backend test review.
-- `postgresql-reviewer`: read-only migration, JSONB storage, seed/version,
+- `postgresql-reviewer`: read-only migration, relational storage, seed/version,
   privilege, transaction, parity, and integration-test review.
 - `security-dependency-reviewer`: read-only dependency, lockfile,
   GitHub Actions, Snyk/audit, secrets, and supply-chain review.

@@ -132,28 +132,18 @@ changes in a new ADR.
 - **Status:** Resolved 2026-07-14 by ADR 0014
 - **Resolution:** The JSON runtime profile and snapshot store were removed.
   PostgreSQL relational workspaces are the only active persistence path.
-- **Remaining boundary:** Ignored personal JSON files may remain as explicit,
-  read-only migration sources until their owners complete backup and migration.
+- **Follow-up:** ADR 0028 and V10/V11 retire the ignored local source convention
+  and the remaining JSONB transition storage after explicit owner approval.
 
 ### LIM-012 — Legacy PostgreSQL JSONB data remains during transition
 
-- **Status:** Runtime JSONB usage resolved; legacy cleanup pending
-- **Impact:** `financial_snapshot_document` remains in the schema as a backed-up
-  migration source, so operators must distinguish it from active relational
-  workspace data.
-- **Current mitigation:** PostgreSQL runtime reads and writes only
-  V3/V4/V6/V7/V8/V9 `financial_record_*` rows. Inspection and migration
-  documentation label V2 JSONB as legacy, and the operator workflow leaves it
-  untouched for recovery evidence.
-- **Remaining migration boundary:** V6 preserves any preexisting unowned
-  relational snapshot without silently assigning it. New and changed rows must
-  have a workspace; any preexisting unowned rows require a separate,
-  owner-approved disposition rather than an inferred owner.
-- **Revisit when:** The owner confirms all personal JSON/JSONB sources are
-  migrated, independently backed up, and outside the required rollback window.
-- **Planned resolution:** Retire the operator migration controller, service, and
-  repository surface, then archive or remove the V2 source table through an
-  additive migration only after that owner gate passes.
+- **Status:** Resolved 2026-07-15 by ADR 0028
+- **Resolution:** The owner selected re-entry from an independent spreadsheet
+  and waived recovery from obsolete application stores. V10/V11 drop
+  `financial_snapshot_document`, the transition ledger, the source linkage,
+  and unowned compatibility rows; the operator API and scripts are removed.
+- **Resulting invariant:** Every relational snapshot has a non-null workspace
+  owner, and PostgreSQL relational tables are the sole persistence path.
 
 ### LIM-013 — Normalized V1 tables are inactive
 
@@ -161,8 +151,8 @@ changes in a new ADR.
 - **Impact:** Their presence can mislead operators into expecting data; they may
   remain empty while the application is healthy.
 - **Current mitigation:** Storage guide, inspector, and architecture map
-  identify V3/V4/V6/V7/V8/V9 as the PostgreSQL runtime path, V2 JSONB as a legacy
-  migration source, and prohibit dual-write/backfill through V1.
+  identify V3/V4/V6-V11 as the PostgreSQL runtime path, record V2/V7 transition
+  objects as retired history, and prohibit dual-write/backfill through V1.
 - **Revisit when:** Planning a production schema cleanup.
 
 ### LIM-014 — Local setup and runtime have dual migration paths
@@ -175,9 +165,9 @@ changes in a new ADR.
   `scripts/migrate-postgres.ps1`; runtime and integration tests use the same
   Flyway chain. Non-empty legacy schemas fail closed unless an explicit,
   signature-checked adoption mode is selected.
-- **Remaining boundary:** Personal legacy databases still require a backup and
-  explicit approval before adoption. Mismatched schemas require an additive
-  repair plan rather than fabricated Flyway history.
+- **Remaining boundary:** Legacy schema adoption is signature-checked, and V10/V11
+  deliberately removes obsolete transition data. Mismatched schemas require an
+  additive repair plan rather than fabricated Flyway history.
 
 ### LIM-015 — Broad local application-role privileges
 
@@ -192,31 +182,24 @@ changes in a new ADR.
 
 - **Status:** Partially mitigated
 - **Impact:** The app can export and restore source-shaped artifacts and now has
-  a verified JSON/JSONB-to-workspace transition, but there is still no automated
+  version-checked application backup and restore, but there is still no automated
   backup schedule, PostgreSQL dump automation, off-host retention policy, or
   database-native restore drill.
 - **Current mitigation:** Manual `GET /api/v1/financials/export` downloads,
   explicit version-checked `POST /api/v1/financials/restore` operations,
-  PowerShell helpers that avoid printing financial contents, plus explicit
-  `migrate-financial-snapshot-to-workspace.ps1` and
-  `rollback-workspace-snapshot-migration.ps1` commands. The migration command
-  requires an external backup and fingerprint before writing, preserves audit
-  events, names the owner/workspace, and independently verifies metadata. The
-  rollback command refuses changed snapshots.
+  PowerShell helpers that avoid printing financial contents.
 - **Revisit when:** Personal data becomes irreplaceable, migrations recur, or a
   deployment is planned.
-- **Remaining boundary:** Keep the source and external backup until relational
-  runtime activation and recovery evidence pass. Production backup automation,
-  retention, and restore drills remain roadmap Phase M work.
+- **Remaining boundary:** Production backup automation, retention, and restore
+  drills remain roadmap Phase M work.
 
 ### LIM-017 — Empty PostgreSQL could seed from personal JSON
 
 - **Status:** Resolved 2026-07-14 by ADR 0014
 - **Resolution:** Startup never reads `financials.local.json` or
   `financials.example.json`. Account creation starts with an empty workspace;
-  users may initialize an empty relational snapshot from pay-period dates, and
-  source data enters relational storage only through the explicit, backed-up
-  migration workflow.
+  users initialize an empty relational snapshot from pay-period dates and then
+  enter or restore data through the authenticated snapshot API.
 
 ### LIM-018 — Audit history is coarse
 

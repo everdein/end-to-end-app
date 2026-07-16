@@ -37,7 +37,7 @@ public class ApiSecurityConfig {
     http.csrf(
             (csrf) ->
                 csrf.csrfTokenRepository(csrfTokenRepository)
-                    .ignoringRequestMatchers("/api/v1/admin/**", "/actuator/**"))
+                    .ignoringRequestMatchers("/actuator/**"))
         .sessionManagement(
             (session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .cors((cors) -> {})
@@ -63,7 +63,7 @@ public class ApiSecurityConfig {
                   .requestMatchers("/actuator/**")
                   .denyAll()
                   .requestMatchers("/api/v1/admin/**")
-                  .hasRole(FINANCIALS_ROLE)
+                  .denyAll()
                   .requestMatchers("/api/v1/financials/**")
                   .hasRole(WorkspaceSessionAuthenticationFilter.WORKSPACE_ROLE)
                   .anyRequest()

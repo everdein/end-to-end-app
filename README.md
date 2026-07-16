@@ -58,7 +58,7 @@ single-workspace planning model while replacing global local state with:
 - version-checked aggregate replacement
 - database-backed sessions and CSRF-protected writes
 - relational audit history
-- explicit, backed-up migration and rollback tooling
+- owner-approved retirement of obsolete prototype stores through Flyway
 
 The result demonstrates how to move a working prototype toward scalable
 boundaries without rewriting the product from scratch.
@@ -200,8 +200,8 @@ Never commit or send those artifacts to external services.
 
 ## Current Boundaries
 
-- PostgreSQL is the only runtime persistence path; V2 JSONB and ignored local
-  JSON remain explicit legacy migration sources until owner-approved cleanup.
+- PostgreSQL relational workspaces are the only persistence path; V10/V11
+  retire the old JSONB store, transition administration, and unowned rows.
 - Browser account sessions and relational workspace ownership are implemented;
   membership-management and collaboration UX are not.
 - Full-snapshot saves use optimistic concurrency; the product does not provide

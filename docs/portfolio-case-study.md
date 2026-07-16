@@ -47,9 +47,6 @@ flowchart LR
     Http --> App["Workspace queries and commands<br/>normalization, calculations, mapping"]
     App -->|"workspace-scoped transactions"| Data["PostgreSQL + Flyway<br/>identity, financial records, audit history"]
 
-    Legacy["Legacy JSON / JSONB<br/>migration source only"] -->|"explicit backup + fingerprint"| Migration["Operator migration workflow"]
-    Migration --> App
-
     Checks["CI and local gates<br/>unit, PostgreSQL, browser, a11y, security"] -. verify .-> Web
     Checks -. verify .-> Http
     Checks -. verify .-> Data
@@ -59,9 +56,10 @@ The browser edits one canonical draft and submits the complete financial
 workspace with its expected version. The backend resolves the current account
 and workspace from database membership, validates and normalizes the aggregate,
 performs the replacement under a workspace lock, and appends a coarse audit
-event. JSON and JSONB are not runtime stores; they remain only behind the
-explicit, operator-controlled migration boundary until the owner closes the
-rollback window.
+event. PostgreSQL relational tables are the sole runtime store. V10 removes the
+obsolete JSONB transition table and migration administration through V10/V11
+after the owner confirmed that the original data remained independently
+available.
 
 ## STAR Story
 
@@ -79,8 +77,8 @@ multiplied complexity and weakened the portfolio story.
 Evolve the prototype into one coherent, scalable application without losing
 the useful pay-period workflow or silently moving personal data. The target
 needed one runtime database, account and workspace isolation, stale-write
-protection, explicit migration and rollback evidence, and verification that
-cross-layer behavior still matched the snapshot contract.
+protection, an explicit decision about obsolete personal data, and verification
+that cross-layer behavior still matched the snapshot contract.
 
 ### Action
 
@@ -93,9 +91,9 @@ cross-layer behavior still matched the snapshot contract.
    recovery, sign-out, CSRF protection, and database-derived workspace access.
 4. Activated one relational, workspace-scoped snapshot store with optimistic
    versions, batched replacement writes, and separately limited audit queries.
-5. Built an explicit JSON/JSONB migration workflow that requires an external
-   backup, verifies a SHA-256 fingerprint and metadata, names the destination
-   owner/workspace, and supports guarded rollback.
+5. Built a guarded JSON/JSONB migration workflow while data ownership was
+   uncertain, then retired the workflow and transition tables through V10/V11 once
+   the owner chose independent re-entry from the original spreadsheet.
 6. Removed the JSON runtime profile, duplicate startup instructions, granular
    mutation APIs, and extra import/export formats after the replacement paths
    were verified.
@@ -108,10 +106,10 @@ cross-layer behavior still matched the snapshot contract.
 The application now has one PostgreSQL startup path and one version-checked
 financial mutation boundary. Account sessions and workspace membership isolate
 users, stale clients receive `409 Conflict` instead of overwriting newer work,
-and migration of legacy data is deliberate rather than an application startup
-side effect. The codebase is smaller in responsibility despite supporting more
-real behavior, and the architecture can be explained from user workflow through
-database transaction and verification evidence.
+and obsolete personal data is neither seeded nor carried as permanent
+compatibility infrastructure. The codebase is smaller in responsibility despite
+supporting more real behavior, and the architecture can be explained from user
+workflow through database transaction and verification evidence.
 
 The current limitation is equally explicit: this is a local-first portfolio
 application, not yet a production deployment. Provider selection, managed

@@ -44,9 +44,8 @@ Project-specific review priorities:
   logs, screenshots, and credentials as sensitive personal data.
 - Preserve the full financial snapshot API contract unless the pull request
   intentionally changes it and updates frontend, backend, tests, and docs.
-- The default runtime profile is JSON. PostgreSQL is opt-in and stores the
-  active aggregate in `financial_snapshot_document.snapshot_json`; normalized
-  V1 tables are groundwork, not active persistence.
+- PostgreSQL relational workspace tables are the only runtime persistence path.
+  Historical V1/V2 schema migrations are not active storage implementations.
 - Keep migrations additive and never edit an applied migration.
 - Require focused tests for behavior changes and report skipped security,
   PostgreSQL, browser, or hosted checks explicitly.

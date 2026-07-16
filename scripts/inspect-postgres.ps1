@@ -38,7 +38,6 @@ WITH expected(table_name) AS (
         ('income_summary_item'),
         ('income_event'),
         ('important_date'),
-        ('financial_snapshot_document'),
         ('financial_record_snapshot'),
         ('financial_record_monthly_bill'),
         ('financial_record_annual_withdrawal'),
@@ -48,7 +47,6 @@ WITH expected(table_name) AS (
         ('financial_record_income_event'),
         ('financial_record_important_date'),
         ('financial_record_audit_event'),
-        ('financial_snapshot_workspace_migration'),
         ('application_user'),
         ('workspace'),
         ('workspace_membership'),
@@ -78,12 +76,9 @@ WITH expected(index_name) AS (
         ('ix_application_session_user_active'),
         ('ix_application_session_active_expiry'),
         ('uq_financial_record_snapshot_active_workspace'),
-        ('uq_financial_record_snapshot_active_unowned'),
         ('ix_financial_record_snapshot_workspace'),
         ('uq_financial_record_audit_event_snapshot_app_event'),
-        ('ix_financial_record_audit_event_snapshot_occurred'),
-        ('uq_financial_snapshot_workspace_migration_applied_workspace'),
-        ('ix_financial_snapshot_workspace_migration_destination')
+        ('ix_financial_record_audit_event_snapshot_occurred')
 )
 SELECT
     expected.index_name,
@@ -110,10 +105,7 @@ JOIN pg_catalog.pg_constraint postgres_constraint
     AND postgres_constraint.conrelid = 'public.financial_record_snapshot'::regclass
 WHERE table_constraint.table_schema = 'public'
   AND table_constraint.table_name = 'financial_record_snapshot'
-  AND table_constraint.constraint_name IN (
-      'financial_record_snapshot_workspace_id_fkey',
-      'ck_financial_record_snapshot_workspace_required'
-  )
+  AND table_constraint.constraint_name = 'financial_record_snapshot_workspace_id_fkey'
 ORDER BY constraint_name;
 
 SELECT
@@ -155,7 +147,6 @@ try {
         "income_summary_item",
         "income_event",
         "important_date",
-        "financial_snapshot_document",
         "financial_record_snapshot",
         "financial_record_monthly_bill",
         "financial_record_annual_withdrawal",
@@ -165,7 +156,6 @@ try {
         "financial_record_income_event",
         "financial_record_important_date",
         "financial_record_audit_event",
-        "financial_snapshot_workspace_migration",
         "application_user",
         "workspace",
         "workspace_membership",
@@ -212,41 +202,12 @@ ROLLBACK;
         }
     }
 
-    if ($existingTables -contains "financial_snapshot_document") {
-        $snapshotSql = @"
-BEGIN TRANSACTION READ ONLY;
-SELECT
-    id,
-    active,
-    version,
-    created_at,
-    updated_at,
-    jsonb_typeof(snapshot_json) AS snapshot_type,
-    jsonb_array_length(COALESCE(snapshot_json->'bills', '[]'::jsonb)) AS bill_count,
-    jsonb_array_length(COALESCE(snapshot_json->'annualWithdrawals', '[]'::jsonb)) AS annual_withdrawal_count,
-    jsonb_array_length(COALESCE(snapshot_json->'assetAccounts', '[]'::jsonb)) AS asset_count,
-    jsonb_array_length(COALESCE(snapshot_json->'debtAccounts', '[]'::jsonb)) AS debt_count,
-    jsonb_array_length(COALESCE(snapshot_json->'incomeEvents', '[]'::jsonb)) AS income_event_count,
-    jsonb_array_length(COALESCE(snapshot_json->'importantDates', '[]'::jsonb)) AS important_date_count,
-    jsonb_array_length(COALESCE(snapshot_json->'auditEvents', '[]'::jsonb)) AS audit_event_count
-FROM public.financial_snapshot_document
-ORDER BY active DESC, id;
-ROLLBACK;
-"@
-        & $psqlPath -h $HostName -p $Port -U $User -d $Database `
-            -v "ON_ERROR_STOP=1" -X -c $snapshotSql
-        if ($LASTEXITCODE -ne 0) {
-            throw "Snapshot metadata inspection failed with exit code $LASTEXITCODE."
-        }
-    }
-
     if ($existingTables -contains "financial_record_snapshot") {
         $recordSnapshotSql = @"
 BEGIN TRANSACTION READ ONLY;
 SELECT
     snapshot.id,
     snapshot.workspace_id,
-    snapshot.source_document_id,
     snapshot.active,
     snapshot.version,
     snapshot.created_at,
@@ -267,40 +228,6 @@ ROLLBACK;
             -v "ON_ERROR_STOP=1" -X -c $recordSnapshotSql
         if ($LASTEXITCODE -ne 0) {
             throw "Relational snapshot metadata inspection failed with exit code $LASTEXITCODE."
-        }
-    }
-
-    if ($existingTables -contains "financial_snapshot_workspace_migration") {
-        $migrationSql = @"
-BEGIN TRANSACTION READ ONLY;
-SELECT
-    id,
-    source_kind,
-    source_fingerprint,
-    source_version,
-    source_document_id,
-    destination_user_id,
-    workspace_id,
-    migrated_snapshot_id,
-    monthly_bill_count,
-    annual_withdrawal_count,
-    asset_account_count,
-    debt_account_count,
-    income_summary_item_count,
-    income_event_count,
-    important_date_count,
-    audit_event_count,
-    status,
-    applied_at,
-    rolled_back_at
-FROM public.financial_snapshot_workspace_migration
-ORDER BY applied_at DESC, id;
-ROLLBACK;
-"@
-        & $psqlPath -h $HostName -p $Port -U $User -d $Database `
-            -v "ON_ERROR_STOP=1" -X -c $migrationSql
-        if ($LASTEXITCODE -ne 0) {
-            throw "Workspace migration metadata inspection failed with exit code $LASTEXITCODE."
         }
     }
 }

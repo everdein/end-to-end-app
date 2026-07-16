@@ -43,10 +43,8 @@ to reproduce and qualify them.
 | Controller/DTO/API              | Controller/service tests plus frontend typecheck       | Full local verification                                   | Request/response compatibility and Problem Detail behavior               |
 | Audit/history                   | Repository/service/controller tests                    | Full local verification                                   | Version movement, newest-first order, no request-body logging            |
 | JSON backup and restore         | Controller/service tests plus frontend typecheck       | Full local verification and isolated PostgreSQL API test  | Older backup restore, stale target rejection, no personal data in output |
-| Legacy JSON migration           | Migration service/API tests                            | Full local verification                                   | Backup fingerprint, explicit owner/workspace, source unchanged           |
 | PostgreSQL store/config/adapter | Focused integration profile                            | Full local verification                                   | Read-only metadata inspection afterward                                  |
-| Migration SQL                   | Review ordered migration and constraints               | Full verification with PostgreSQL                         | Fresh and upgraded isolated schema; Flyway history behavior              |
-| Workspace data migration        | Service/controller tests plus script parser            | Full local verification                                   | External backup fingerprint, ownership, counts, audit, rollback          |
+| Migration SQL                   | Review ordered migration and constraints               | Full verification with PostgreSQL                         | Fresh and upgraded isolated schema; transformations and retirement       |
 | PowerShell scripts              | PowerShell parser plus safest applicable execution     | Full local verification when orchestration changed        | Exit codes, working directory, cleanup, mutation scope                   |
 | Dependency/lockfile             | Clean install and affected build/tests                 | Full local verification and authenticated security checks | Direct/transitive path, compatibility, both lock files                   |
 | GitHub workflow                 | Run exact local equivalents                            | Hosted PR run required                                    | Events, permissions, job dependencies, cache paths, secrets              |
@@ -142,24 +140,19 @@ run.
 The default verifier runs `PostgresFinancialsSnapshotStoreIT`,
 `PostgresFinancialRecordSnapshotAdapterIT`, `PostgresIdentitySchemaIT`, and
 `PostgresWorkspaceOwnershipSchemaIT`, `AccountSessionServiceIT`,
-`AccountSessionApiIT`, `WorkspaceSnapshotMigrationApiIT`, and
-`WorkspaceFinancialRuntimeApiIT` against isolated
+`AccountSessionApiIT`, and `WorkspaceFinancialRuntimeApiIT` against isolated
 schemas, recreates their test tables,
 and drops those schemas afterward. The identity
 test checks normalized-email, membership-role, single-owner, and
-session-lifetime constraints. The ownership tests exercise a V5-to-V6 upgrade,
-new-row ownership constraints, one active snapshot per workspace, and
-cross-workspace isolation for every relational record family. The account tests
+session-lifetime constraints. The ownership tests exercise a V5-to-V11 upgrade,
+retirement of unowned and transition storage, required workspace ownership,
+one active snapshot per workspace, and cross-workspace isolation for every
+relational record family. The account tests
 inspect password/token hashing, session recovery/revocation, two-user
 membership isolation, and Flyway-before-repository startup. They also verify
 that PostgreSQL rejects legacy Basic credentials for financial access. The
 runtime API test verifies session authorization, CSRF enforcement, relational
-audit continuity, and two-user/two-workspace isolation. The migration API test
-runs Flyway
-through V7 and checks both source types, Basic/session authorization, backup
-fingerprints, destination ownership, record/audit preservation, metadata-only
-verification, overwrite refusal, successful rollback, and changed-version
-rollback refusal. Do not use it
+audit continuity, and two-user/two-workspace isolation. Do not use it
 where those schema names belong to another application. Inspection is
 read-only and reports metadata rather than financial values. Set
 `DATABASE_USERNAME` and `DATABASE_PASSWORD` in the current shell before running
@@ -175,7 +168,7 @@ PostgreSQL verification is required for changes to:
 - Empty-workspace and no-implicit-seed behavior
 - Database role assumptions
 - Identity, workspace, membership, or session constraints
-- Legacy JSON/JSONB migration behavior
+- Destructive transition-storage retirement and workspace ownership
 
 ### Accessibility
 
@@ -300,28 +293,26 @@ against the source map and executable sources before posting or changing docs.
 
 ## Mutation and External-Dependency Matrix
 
-| Command                                       | Local writes                                                       | Database writes                                      | Network/credentials                                |
-| --------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------- | -------------------------------------------------- |
-| `check-environment.ps1`                       | None                                                               | None                                                 | None                                               |
-| `bootstrap-local.ps1`                         | Dependency directories/hooks                                       | Only with `-IncludePostgres`                         | Package installation may need network              |
-| `verify-local.ps1`                            | Build, test, and coverage output                                   | Creates and drops isolated test schemas              | Local database credentials; Maven may need network |
-| `inspect-postgres.ps1`                        | None                                                               | Explicit read-only transactions                      | Local database credentials                         |
-| `export-financial-snapshot.ps1`               | Writes the requested export file outside the repository by default | Creates and revokes a temporary account session      | Account credential and selected workspace          |
-| `restore-financial-snapshot.ps1`              | None                                                               | Replaces the saved snapshot; creates/revokes session | Account credential and selected workspace          |
-| `run-browser-checks.ps1`                      | Playwright reports/traces in ignored paths                         | Creates and drops an isolated test schema            | May install browser binaries with flag             |
-| `capture-portfolio-evidence.ps1`              | Overwrites committed synthetic PNG evidence                        | Creates and drops an isolated capture schema         | May install browser binaries with flag             |
-| `run-security-checks.ps1`                     | Tool caches/reporting side effects                                 | None                                                 | Network and Snyk token                             |
-| `write-coverage-summary.ps1`                  | Optional GitHub job summary output                                 | None                                                 | None                                               |
-| `check-public-corpus.ps1`                     | None                                                               | None                                                 | None                                               |
-| `check-documentation-drift.ps1`               | Optional GitHub job summary output                                 | None                                                 | None                                               |
-| `triage-dependency-updates.ps1`               | Optional GitHub job summary output                                 | None                                                 | None                                               |
-| `generate-engineering-status.ps1`             | Optional GitHub job summary output                                 | None                                                 | None                                               |
-| `setup-local-postgres.ps1`                    | None                                                               | Creates/updates role/database and invokes Flyway     | PostgreSQL administrator credential                |
-| `migrate-postgres.ps1`                        | Maven output/cache                                                 | Applies and validates Flyway migrations              | Application database credential                    |
-| `migrate-financial-snapshot-to-workspace.ps1` | External JSON backup and API response metadata                     | Creates workspace relational snapshot/history        | Financial API credential and personal source       |
-| `rollback-workspace-snapshot-migration.ps1`   | Metadata-only API response                                         | Deactivates unchanged migrated snapshot              | Financial API credential and migration UUID        |
-| `setup-postgres-readonly-role.ps1`            | None                                                               | Creates/updates read-only role and grants            | PostgreSQL administrator credential                |
-| `start-backend.ps1`                           | Logs/runtime output                                                | Applies Flyway migrations; later app writes          | Application database credential                    |
+| Command                            | Local writes                                                       | Database writes                                      | Network/credentials                                |
+| ---------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------- | -------------------------------------------------- |
+| `check-environment.ps1`            | None                                                               | None                                                 | None                                               |
+| `bootstrap-local.ps1`              | Dependency directories/hooks                                       | Only with `-IncludePostgres`                         | Package installation may need network              |
+| `verify-local.ps1`                 | Build, test, and coverage output                                   | Creates and drops isolated test schemas              | Local database credentials; Maven may need network |
+| `inspect-postgres.ps1`             | None                                                               | Explicit read-only transactions                      | Local database credentials                         |
+| `export-financial-snapshot.ps1`    | Writes the requested export file outside the repository by default | Creates and revokes a temporary account session      | Account credential and selected workspace          |
+| `restore-financial-snapshot.ps1`   | None                                                               | Replaces the saved snapshot; creates/revokes session | Account credential and selected workspace          |
+| `run-browser-checks.ps1`           | Playwright reports/traces in ignored paths                         | Creates and drops an isolated test schema            | May install browser binaries with flag             |
+| `capture-portfolio-evidence.ps1`   | Overwrites committed synthetic PNG evidence                        | Creates and drops an isolated capture schema         | May install browser binaries with flag             |
+| `run-security-checks.ps1`          | Tool caches/reporting side effects                                 | None                                                 | Network and Snyk token                             |
+| `write-coverage-summary.ps1`       | Optional GitHub job summary output                                 | None                                                 | None                                               |
+| `check-public-corpus.ps1`          | None                                                               | None                                                 | None                                               |
+| `check-documentation-drift.ps1`    | Optional GitHub job summary output                                 | None                                                 | None                                               |
+| `triage-dependency-updates.ps1`    | Optional GitHub job summary output                                 | None                                                 | None                                               |
+| `generate-engineering-status.ps1`  | Optional GitHub job summary output                                 | None                                                 | None                                               |
+| `setup-local-postgres.ps1`         | None                                                               | Creates/updates role/database and invokes Flyway     | PostgreSQL administrator credential                |
+| `migrate-postgres.ps1`             | Maven output/cache                                                 | Applies and validates Flyway migrations              | Application database credential                    |
+| `setup-postgres-readonly-role.ps1` | None                                                               | Creates/updates read-only role and grants            | PostgreSQL administrator credential                |
+| `start-backend.ps1`                | Logs/runtime output                                                | Applies Flyway migrations; later app writes          | Application database credential                    |
 
 Do not run mutating or credentialed checks solely to make a checklist look
 complete. Explain why they were required and what target they used.

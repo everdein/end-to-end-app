@@ -44,13 +44,13 @@ and user or operator impact.
   and error recovery.
 - Require regression tests for defects and boundary tests for contract changes.
 
-## PostgreSQL Persistence and Legacy Migration
+## PostgreSQL Persistence and Flyway
 
-- Treat the V3/V4/V6/V7 `financial_record_*` tables as the active runtime path
-  and `financial_snapshot_document` plus local JSON as explicit legacy
-  migration sources only.
+- Treat the V3/V4/V6-V11 `financial_record_*` tables as the active runtime path.
+  V10/V11 remove the V2 JSONB table, V7 transition ledger, source linkage, and
+  unowned compatibility rows.
 - Verify workspace ownership, IDs, versions, optimistic replacement, and
-  serialization remain consistent across runtime and migration boundaries.
+  serialization remain consistent across runtime and backup/restore boundaries.
 - Require additive migrations. Check constraints, indexes, transaction
   boundaries, locking/concurrency, rollback behavior, and Flyway ordering.
 - Verify startup does not seed an empty workspace and ensure personal local

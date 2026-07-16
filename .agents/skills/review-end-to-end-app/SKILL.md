@@ -11,8 +11,8 @@ description: Review the end-to-end-app repository, pull requests, or change sets
    changed files, commits when applicable, and nearby tests. Do not review
    unrelated pre-existing worktree changes.
 3. Trace every changed behavior across the affected boundaries: React draft
-   state, API client, DTOs, service rules, PostgreSQL storage, legacy migration
-   inputs, and CI when applicable.
+   state, API client, DTOs, service rules, PostgreSQL storage, Flyway history,
+   and CI when applicable.
 4. Apply every relevant checklist section. For a full review, cover frontend,
    backend/API, PostgreSQL, CI/security, accessibility, and test coverage;
    state which sections are not applicable.
@@ -29,7 +29,7 @@ description: Review the end-to-end-app repository, pull requests, or change sets
 
 Treat the V1 normalized tables as inactive historical groundwork; ADR 0009 keeps
 them out of the runtime relational adapter path. Do not infer that an empty V1
-table means PostgreSQL persistence is broken. Treat the V3/V4/V6/V7
-`financial_record_*` tables as the active PostgreSQL runtime path and V2 JSONB
-as a legacy migration source. Do not infer that an authenticated Snyk scan
-passed from `npm audit`.
+table means PostgreSQL persistence is broken. Treat the V3/V4/V6-V11
+`financial_record_*` tables as the active PostgreSQL runtime path. V10/V11
+retire the V2 JSONB and V7 migration-administration storage. Do not infer that an
+authenticated Snyk scan passed from `npm audit`.

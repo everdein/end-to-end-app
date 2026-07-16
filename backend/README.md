@@ -12,7 +12,7 @@ The backend demonstrates:
   services
 - PostgreSQL-backed account, membership, session, snapshot, and audit data
 - optimistic concurrency around the complete financial workspace aggregate
-- additive Flyway migrations plus explicit legacy migration and recovery tools
+- additive Flyway migrations, including explicit retirement of obsolete storage
 - focused unit, controller, security, and isolated PostgreSQL integration tests
 
 ---
@@ -111,8 +111,9 @@ Password: financial_app_local_password
 ```
 
 Override these with `FINANCIALS_API_USERNAME` and `FINANCIALS_API_PASSWORD`
-before starting the backend. They protect migration-admin and metrics routes.
-Financial workspace routes use account sessions.
+before starting the backend. They protect metrics routes. Financial workspace
+routes use account sessions, and the retired `/api/v1/admin/**` namespace is
+denied.
 
 Runtime guardrails:
 
@@ -245,6 +246,10 @@ backend/src/main/resources/db/migration/V4__add_financial_record_app_id_constrai
 backend/src/main/resources/db/migration/V5__create_identity_workspace_session_schema.sql
 backend/src/main/resources/db/migration/V6__scope_financial_record_snapshots_to_workspace.sql
 backend/src/main/resources/db/migration/V7__add_workspace_snapshot_migration_history.sql
+backend/src/main/resources/db/migration/V8__add_financial_projection_roles.sql
+backend/src/main/resources/db/migration/V9__add_financial_planning_settings.sql
+backend/src/main/resources/db/migration/V10__retire_legacy_snapshot_migration.sql
+backend/src/main/resources/db/migration/V11__require_workspace_owned_financial_snapshots.sql
 ```
 
 The script is idempotent on a Flyway-managed database. If the database already
@@ -374,6 +379,10 @@ src/main/resources/db/migration/V4__add_financial_record_app_id_constraints.sql
 src/main/resources/db/migration/V5__create_identity_workspace_session_schema.sql
 src/main/resources/db/migration/V6__scope_financial_record_snapshots_to_workspace.sql
 src/main/resources/db/migration/V7__add_workspace_snapshot_migration_history.sql
+src/main/resources/db/migration/V8__add_financial_projection_roles.sql
+src/main/resources/db/migration/V9__add_financial_planning_settings.sql
+src/main/resources/db/migration/V10__retire_legacy_snapshot_migration.sql
+src/main/resources/db/migration/V11__require_workspace_owned_financial_snapshots.sql
 ```
 
 The full setup path creates the role/database and invokes Flyway:
@@ -408,7 +417,8 @@ The first accepts a V2 document-only schema with the expected columns and no
 duplicate active rows, then baselines at version 0 so Flyway still executes
 V1-V4 and restores the unique-active index when absent. The second requires the
 expected V1-V4 table/index signature and baselines at version 4. Signature
-mismatches are refused.
+mismatches are refused. These options recover Flyway history only; V10/V11
+intentionally remove obsolete transition storage and do not preserve its data.
 
 Verify the schema:
 
@@ -416,68 +426,20 @@ Verify the schema:
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U financial_app_user -d financial_app
 ```
 
-Inside `psql`:
+Exit `psql` with `\q`, then use the metadata-only inspector from the repository
+root:
 
-```sql
-\dt
-SELECT count(*) FROM financial_snapshot_document;
-SELECT count(*) FROM financial_record_snapshot;
-\q
+```powershell
+.\scripts\inspect-postgres.ps1
 ```
 
-Expected tables:
-
-```text
-annual_withdrawal
-asset_account
-debt_account
-financial_snapshot
-financial_snapshot_document
-financial_record_annual_withdrawal
-financial_record_asset_account
-financial_record_debt_account
-financial_record_important_date
-financial_record_income_event
-financial_record_income_summary_item
-financial_record_monthly_bill
-financial_record_snapshot
-important_date
-income_event
-income_summary_item
-monthly_withdrawal
-```
-
-A `financial_snapshot_document` count of `0` is normal on a fresh database.
-
-To inspect the current storage split without exposing snapshot contents, run:
-
-```sql
-SELECT 'annual_withdrawal' AS table_name, count(*) AS row_count FROM annual_withdrawal
-UNION ALL SELECT 'asset_account', count(*) FROM asset_account
-UNION ALL SELECT 'debt_account', count(*) FROM debt_account
-UNION ALL SELECT 'financial_snapshot', count(*) FROM financial_snapshot
-UNION ALL SELECT 'financial_snapshot_document', count(*) FROM financial_snapshot_document
-UNION ALL SELECT 'financial_record_annual_withdrawal', count(*) FROM financial_record_annual_withdrawal
-UNION ALL SELECT 'financial_record_asset_account', count(*) FROM financial_record_asset_account
-UNION ALL SELECT 'financial_record_debt_account', count(*) FROM financial_record_debt_account
-UNION ALL SELECT 'financial_record_important_date', count(*) FROM financial_record_important_date
-UNION ALL SELECT 'financial_record_income_event', count(*) FROM financial_record_income_event
-UNION ALL SELECT 'financial_record_income_summary_item', count(*) FROM financial_record_income_summary_item
-UNION ALL SELECT 'financial_record_monthly_bill', count(*) FROM financial_record_monthly_bill
-UNION ALL SELECT 'financial_record_snapshot', count(*) FROM financial_record_snapshot
-UNION ALL SELECT 'important_date', count(*) FROM important_date
-UNION ALL SELECT 'income_event', count(*) FROM income_event
-UNION ALL SELECT 'income_summary_item', count(*) FROM income_summary_item
-UNION ALL SELECT 'monthly_withdrawal', count(*) FROM monthly_withdrawal
-ORDER BY table_name;
-```
-
-Expected for the relational PostgreSQL runtime: V1 tables may remain empty,
-`financial_snapshot_document` may contain a retained legacy source, and
-V3/V4/V6/V7/V8/V9 `financial_record_*` rows exist only after explicit workspace
-migration or creation. The V5 identity, workspace, membership, and session
-tables have `0` rows until the account API is used. Creating an account does not
-silently assign or seed financial data.
+Expected for the relational PostgreSQL runtime: inactive V1 tables may remain
+empty, V3/V4/V6-V11 `financial_record_*` rows exist only after workspace
+initialization, and V5 identity/session tables remain empty until the account
+API is used. V10 removes the V2 JSONB document table, V7 migration ledger, and
+source linkage; V11 removes unowned compatibility rows and requires relational
+workspace ownership. Creating an account does not silently assign or seed
+financial data.
 
 ---
 
@@ -490,9 +452,9 @@ relational tables:
 financial_record_snapshot and financial_record_*
 ```
 
-The ignored `backend/data/financials.local.json` file is a legacy migration
-source only. Startup never reads, creates, or updates it. The committed
-synthetic example remains available for tests and explicit migration exercises:
+The ignored `backend/data/financials.local.json` pattern is an obsolete local
+artifact, not a supported input. Startup never reads, creates, or updates it.
+The committed synthetic example remains available for tests and demos:
 
 ```text
 backend/data/financials.example.json
@@ -501,9 +463,8 @@ backend/data/financials.example.json
 This intentionally keeps the frontend API contract unchanged. The browser still
 loads one snapshot, edits a local draft, and saves one snapshot back to the API.
 
-The active PostgreSQL repository reads and writes only V3/V4/V6/V7/V8/V9
-`financial_record_*` tables. `financial_snapshot_document` is retained as a
-legacy migration source. The normalized V1 tables
+The active PostgreSQL repository reads and writes only V3/V4/V6-V11
+`financial_record_*` tables. The normalized V1 tables
 (`financial_snapshot`, `monthly_withdrawal`, `annual_withdrawal`,
 `asset_account`, `debt_account`, `income_summary_item`, `income_event`, and
 `important_date`) are inactive historical groundwork. They are not the planned
@@ -539,9 +500,9 @@ it is the backend application user. For read-only inspection, use `SELECT`
 queries or create a separate PostgreSQL role with only `CONNECT`, `USAGE`, and
 `SELECT` privileges.
 
-An empty PostgreSQL workspace is not seeded implicitly. Use the explicit
-migration workflow for existing data; a financial request returns `404` until a
-relational snapshot exists.
+An empty PostgreSQL workspace is not seeded implicitly. Initialize it through
+the application, or deliberately restore a supported application export. A
+financial request returns `404` until a relational snapshot exists.
 
 ---
 
@@ -576,31 +537,6 @@ sole membership is selected automatically; multi-workspace accounts send
 `X-Workspace-ID`. The frontend signs up, signs in, restores the session, and
 selects its workspace through this flow.
 
-### Workspace migration operations
-
-These operator endpoints require the configured Basic-auth authority and exact
-`X-Confirm-Financial-Migration` confirmation headers:
-
-```http
-GET  /api/v1/admin/workspace-migrations/legacy-jsonb-backup
-POST /api/v1/admin/workspace-migrations/apply/json-file
-POST /api/v1/admin/workspace-migrations/apply/jsonb-document
-GET  /api/v1/admin/workspace-migrations/{migrationId}
-POST /api/v1/admin/workspace-migrations/{migrationId}/rollback
-```
-
-Use the repository scripts rather than calling these operator endpoints by
-hand. `migrate-financial-snapshot-to-workspace.ps1` writes the exact source to
-an external backup first, computes its SHA-256 fingerprint, names the owner
-email and empty destination workspace, applies the migration, and independently
-reads back version and record-count metadata. V7 preserves source audit events
-and records migration history without storing another snapshot copy.
-
-`rollback-workspace-snapshot-migration.ps1` deactivates the migrated relational
-snapshot only while its ID, version, active state, and record counts still match
-the migration record. It retains relational rows, migration history, the legacy
-source, and the external backup. It refuses rollback after target changes.
-
 ### Initialize an empty financial snapshot
 
 ```http
@@ -612,7 +548,7 @@ zero-value projection input records and typed role references for the
 authenticated workspace, and returns `201 Created` with the calculated
 response. It does not import financial values. Duplicate or concurrent
 initialization returns `409 Conflict`. It never imports example, personal JSON,
-or legacy JSONB data. The initializer returns the created aggregate for response
+or retired JSONB data. The initializer returns the created aggregate for response
 presentation; the controller does not reload it after the write.
 
 ### Get financial snapshot
@@ -714,8 +650,7 @@ This avoids local CORS configuration requirements during development.
 ```text
 backend/
 |-- data/
-|   |-- financials.example.json
-|   `-- financials.local.json        # ignored legacy migration source
+|   `-- financials.example.json      # synthetic test/demo fixture
 |-- src/main/java/
 |   |-- com/example/backend/api/
 |   |-- com/example/backend/domain/
@@ -733,7 +668,11 @@ backend/
 |       |-- V4__add_financial_record_app_id_constraints.sql
 |       |-- V5__create_identity_workspace_session_schema.sql
 |       |-- V6__scope_financial_record_snapshots_to_workspace.sql
-|       `-- V7__add_workspace_snapshot_migration_history.sql
+|       |-- V7__add_workspace_snapshot_migration_history.sql
+|       |-- V8__add_financial_projection_roles.sql
+|       |-- V9__add_financial_planning_settings.sql
+|       |-- V10__retire_legacy_snapshot_migration.sql
+|       `-- V11__require_workspace_owned_financial_snapshots.sql
 |-- src/test/java/
 |-- pom.xml
 `-- README.md
@@ -781,8 +720,7 @@ Persistence-facing data models and storage adapters.
 Responsibilities:
 
 - loading and writing PostgreSQL-backed snapshot data
-- reading legacy JSON/JSONB only through explicit migration operations
-- workspace-scoped aggregate saving/loading in the V3/V4/V6/V7/V8/V9 relational
+- workspace-scoped aggregate saving/loading in the V3/V4/V6-V11 relational
   record adapter path
 - assigning IDs for new relational rows
 - keeping persistence concerns out of controllers
@@ -840,7 +778,7 @@ asset accounts, debt accounts, income summary source items, income calendar
 events, and important dates. Derived income summary rows are calculated by the
 frontend.
 
-The runtime stores this aggregate in V3/V4/V6/V7/V8/V9 relational workspace tables
+The runtime stores this aggregate in V3/V4/V6-V11 relational workspace tables
 and authorizes access from account-session memberships.
 
 ---
@@ -922,15 +860,15 @@ $env:DATABASE_PASSWORD="financial_app_password"
 
 ## PostgreSQL integration test
 
-The PostgreSQL snapshot store, V3/V4/V6/V7/V8/V9 workspace-scoped relational record
-adapter, V5 identity schema, V6 legacy-upgrade boundary, account/session flows,
-and explicit migration/rollback API have a required repository integration
-gate. Focused Maven unit builds remain database-independent, while
+The PostgreSQL snapshot store, V3/V4/V6-V11 workspace-scoped relational record
+adapter, V5 identity schema, V10/V11 retirement boundary, and account/session flows
+have a required repository integration gate. Focused Maven unit builds remain
+database-independent, while
 `.\scripts\verify-local.ps1` and hosted CI run the integration profile. The tests
 create and drop isolated schemas named `financial_snapshot_store_test`,
 `financial_record_snapshot_adapter_test`, `identity_schema_test`, and
 `workspace_ownership_schema_test`, plus isolated account/session and workspace
-migration schemas, inside the configured database.
+runtime schemas, inside the configured database.
 
 PowerShell:
 
@@ -984,7 +922,7 @@ CREATE DATABASE financial_app OWNER financial_app_user;
 
 ---
 
-### Backend fails with `relation "financial_snapshot_document" does not exist`
+### Backend fails with a missing application relation
 
 The backend connected to PostgreSQL, but the schema migrations have not been
 applied.
@@ -1024,24 +962,6 @@ C:\Program Files\PostgreSQL\18\bin
 
 ---
 
-### `financial_snapshot_document` exists but has `0` rows
-
-The legacy source table exists but contains no pre-activation JSONB snapshot.
-
-Check:
-
-```sql
-SELECT count(*) FROM financial_snapshot_document;
-```
-
-A count of `0` is healthy. PostgreSQL startup no longer seeds this table or any
-workspace from local/example JSON.
-
-If data from another machine is required, create the destination account and
-use the explicit workspace migration workflow with an external backup.
-
----
-
 ## CI / Security tooling
 
 The backend participates in repository CI pipelines for:
@@ -1058,10 +978,10 @@ The backend participates in repository CI pipelines for:
 
 Intentional simplifications:
 
-- PostgreSQL is the only runtime persistence path; V2 JSONB and local JSON are
-  retained only as explicit legacy migration sources
+- PostgreSQL relational tables are the only runtime persistence path; V10/V11
+  retire V2 JSONB, the V7 transition ledger, and unowned compatibility rows
 - financial routes require account sessions and workspace membership; operator
-  Basic auth is limited to migration administration and protected metrics
+  Basic auth is limited to protected metrics
 - no external APIs
 - no production deployment infrastructure
 

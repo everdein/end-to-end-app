@@ -14,9 +14,6 @@ implemented PostgreSQL-only target.
 flowchart TD
     Repo["FinancialsRepository<br/>in-memory aggregate"] --> Store["PostgresFinancialsSnapshotStore"]
     Store -->|"session workspace"| Relational["financial_record_* rows"]
-    Local["financials.local.json<br/>legacy personal source"] -. "explicit migration only" .-> Relational
-    Example["financials.example.json<br/>synthetic input"] -. "explicit migration only" .-> Relational
-    Legacy["financial_snapshot_document<br/>legacy JSONB source"] -. "explicit migration" .-> Relational
 ```
 
 The relational adapter stores these source fields:
@@ -40,34 +37,31 @@ the version created by each committed write.
 
 ## Ownership
 
-| Concern                              | Owner                                               |
-| ------------------------------------ | --------------------------------------------------- |
-| Domain aggregate and records         | `domain/financials/`                                |
-| Legacy migration envelope            | `repository/FinancialsData.java`                    |
-| In-memory records and ID assignment  | `repository/FinancialsRepository.java`              |
-| Adapter contract                     | `repository/FinancialsSnapshotStore.java`           |
-| Current/history/replacement boundary | `PostgresFinancialsSnapshotStore.java`              |
-| Relational record adapter path       | `PostgresFinancialRecordSnapshotAdapter.java`       |
-| Workspace migration orchestration    | `WorkspaceSnapshotMigrationService.java`            |
-| Migration metadata/audit storage     | `PostgresWorkspaceSnapshotMigrationRepository.java` |
-| Runtime configuration                | `application.properties`                            |
-| Schema history                       | Ordered files under `db/migration/`                 |
-| Local role/database creation         | `scripts/setup-local-postgres.ps1`                  |
-| Local migration execution            | `scripts/migrate-postgres.ps1`                      |
-| Read-only role creation              | `scripts/setup-postgres-readonly-role.ps1`          |
-| Read-only diagnosis                  | `scripts/inspect-postgres.ps1`                      |
-| Personal-data custody                | The local developer/operator                        |
+| Concern                              | Owner                                         |
+| ------------------------------------ | --------------------------------------------- |
+| Domain aggregate and records         | `domain/financials/`                          |
+| In-memory records and ID assignment  | `repository/FinancialsRepository.java`        |
+| Adapter contract                     | `repository/FinancialsSnapshotStore.java`     |
+| Current/history/replacement boundary | `PostgresFinancialsSnapshotStore.java`        |
+| Relational record adapter path       | `PostgresFinancialRecordSnapshotAdapter.java` |
+| Runtime configuration                | `application.properties`                      |
+| Schema history                       | Ordered files under `db/migration/`           |
+| Local role/database creation         | `scripts/setup-local-postgres.ps1`            |
+| Local migration execution            | `scripts/migrate-postgres.ps1`                |
+| Read-only role creation              | `scripts/setup-postgres-readonly-role.ps1`    |
+| Read-only diagnosis                  | `scripts/inspect-postgres.ps1`                |
+| Personal-data custody                | The local developer/operator                  |
 
 Controllers and services must not read files or issue SQL. Storage adapters
 must not calculate API totals or presentation fields.
 
-## Legacy JSON Files
+## Obsolete Local Files
 
 `backend/data/financials.local.json` and its `.tmp`/`.bak` siblings are ignored
-legacy personal-data artifacts. The runtime never reads or writes them.
-Preserve them until their owner has completed an explicit backup and workspace
-migration. `backend/data/financials.example.json` remains committed synthetic
-input for tests, demos, and intentional migration only.
+obsolete personal-data artifacts. The runtime and supported operator workflows
+never read or write them. Delete them only with explicit owner approval.
+`backend/data/financials.example.json` remains committed synthetic input for
+tests, browser workflows, and portfolio captures only.
 
 ## PostgreSQL Runtime
 
@@ -80,36 +74,24 @@ input for tests, demos, and intentional migration only.
 Do not reuse local default credentials outside an isolated development
 environment.
 
-### Legacy document table
+### Retired transition storage
 
-`financial_snapshot_document` is retained as a legacy migration source:
-
-| Column          | Meaning                                                                      |
-| --------------- | ---------------------------------------------------------------------------- |
-| `id`            | Database identity                                                            |
-| `active`        | Marks the current document                                                   |
-| `version`       | Current optimistic-concurrency version                                       |
-| `snapshot_json` | Complete `FinancialsData` storage envelope as JSONB, including audit history |
-| `created_at`    | Row creation timestamp                                                       |
-| `updated_at`    | Latest update timestamp                                                      |
-
-A partial unique index allows at most one legacy row where `active = true`.
-Runtime requests do not read, seed, or update this table. Operator migration
-endpoints may back it up and copy it into an owned relational workspace without
-changing the source.
+V2 historically created `financial_snapshot_document`, and V7 added
+`financial_snapshot_workspace_migration` plus an optional source linkage.
+ADR 0028 records the explicit decision to waive recovery from those obsolete
+stores. V10 drops both tables and removes the linkage. V11 removes unowned
+compatibility rows and makes relational workspace ownership non-null.
 
 ### Empty-workspace behavior
 
 Starting the application never copies local JSON or synthetic example data.
 Signup creates identity and membership rows only. A financial request for
-a workspace without an explicitly migrated or created relational snapshot
+a workspace without an explicitly created relational snapshot
 returns `404`. The browser can create a version-1 relational snapshot with
 zero-value projection input records by posting its selected pay-period dates
 to `/api/v1/financials`; V8 stores their typed role references and V9 stores
 their planning cadence and time zone with the snapshot. The unique active
-workspace constraint rejects duplicate
-and concurrent initialization. Existing data still enters through the
-explicit, backed-up migration workflow.
+workspace constraint rejects duplicate and concurrent initialization.
 
 ### Normalized V1 tables
 
@@ -126,12 +108,11 @@ V1 creates:
 
 These tables are inactive historical groundwork. ADR 0009 decides they should
 not become the active relational persistence path as-is. The current
-application does not read or write them, so zero rows is expected even when the
-document table contains an active snapshot.
+application does not read or write them, so zero rows is expected.
 
 Do not dual-write, backfill, query, or repair through the V1 tables.
 
-### V3/V4/V6/V7/V8/V9 relational runtime path
+### V3/V4/V6-V11 relational runtime path
 
 V3 creates the `financial_record_*` table family:
 
@@ -162,7 +143,7 @@ foreign key.
 V8 adds `financial_record_projection_role`. Each versioned snapshot stores the
 application record ID selected for the rent bill, rent-reserve asset account,
 and primary-paycheck income-summary item. V8 backfills exact historical anchor
-labels; the service completes any legacy input without roles before it is persisted.
+labels; the service completes an older backup without roles before it is persisted.
 Typed reference integrity is validated by the application because one role
 table cannot use a direct foreign key to three different child-table types.
 
@@ -173,12 +154,11 @@ the time-zone value as an IANA zone. Existing rows default to `BIWEEKLY` and
 `UTC`. Both fields are versioned, copied through backup/restore, and replaced
 with the rest of the aggregate.
 
-V6 does not silently assign any preexisting relational snapshot to a user or
-workspace. Its workspace-required check is `NOT VALID`: PostgreSQL enforces it
-for every new or changed row while a legacy unowned row can remain untouched
-for the explicit migration workflow. A transitional unique index still allows
-at most one active unowned row. After explicit ownership migration, a later
-migration must validate the check and remove that transitional index.
+V6 introduced workspace ownership without assigning preexisting relational
+rows. V11 completes that transition: it removes any remaining unowned rows,
+drops the transitional index and check constraint, and makes `workspace_id`
+`NOT NULL`. Every retained runtime snapshot therefore has explicit workspace
+ownership.
 
 The adapter saves and loads one active relational snapshot per workspace and
 marks only that workspace's previous relational snapshots inactive. The
@@ -218,29 +198,20 @@ multi-workspace accounts, and state-changing financial requests require the
 same CSRF cookie/header proof. Zero rows in the four V5 tables remains expected
 before the account API is used.
 
-### V7 migration history and relational audit preservation
+### V7 relational audit persistence
 
-V7 adds `financial_record_audit_event` so an explicit workspace migration can
-preserve the audit history carried by the legacy `FinancialsData` JSON
-envelope. Audit rows belong to a relational snapshot and retain application
-event IDs, timestamps, version movement, coarse action/resource metadata, and
-projection summaries. They do not contain request bodies or field-level diffs.
+V7 adds `financial_record_audit_event`. Audit rows belong to a relational
+snapshot and retain application event IDs, timestamps, version movement,
+coarse action/resource metadata, and projection summaries. They do not contain
+request bodies or field-level diffs. Runtime writes append exactly one new
+relational audit event while history reads span retained snapshots for the
+selected workspace. The request repository loads current snapshot records
+lazily and does not load them for a history-only request. History is queried
+newest first with the validated limit applied in SQL.
 
-V7 also adds `financial_snapshot_workspace_migration`. Each row records the
-source kind and SHA-256 fingerprint, effective source version, optional source
-document ID, named destination owner/workspace, migrated snapshot ID, record
-and audit counts, applied/rolled-back status, and timestamps. It does not store
-another copy of the financial snapshot. Database constraints require an actual
-workspace membership and allow at most one applied migration per workspace.
-
-The PostgreSQL-only operator service uses this schema to migrate either an
-explicit JSON file or the active legacy JSONB document into an empty workspace.
-It validates source fidelity, preserves audit history, verifies counts and
-version inside the transaction, and leaves the source untouched. Runtime writes
-append exactly one new relational audit event while history reads span retained
-snapshots for the selected workspace. The request repository loads current
-snapshot records lazily and does not load them for a history-only request.
-History is queried newest first with the validated limit applied in SQL.
+V7 also introduced temporary migration-history infrastructure. V10 removes
+that ledger, the V2 JSONB document table, and source-document linkage after the
+owner chose independent re-entry instead of preserving obsolete local data.
 
 Whole-snapshot replacement still creates a new immutable relational snapshot.
 The adapter batches each child-record family in groups of up to 100 and inserts
@@ -264,7 +235,7 @@ write-capable. It needs:
 - Schema usage
 - Flyway/schema creation privileges
 - Select, insert, update, and delete on identity, workspace, relational
-  snapshot, record, audit, and migration tables
+  snapshot, record, and audit tables
 - Sequence privileges needed for identity IDs
 
 The setup script currently grants database ownership and broad local
@@ -331,7 +302,7 @@ schema setup.
 - Add constraints and indexes with the table change they protect, or as a
   separate additive migration when the table may already exist.
 - Test migrations on an isolated database/schema before using personal data.
-- Document data transformations, recovery, and compatibility with both stores.
+- Document data transformations, destructive retirement, and recovery limits.
 
 Flyway is the single migration authority. The `postgres` runtime and
 `scripts/migrate-postgres.ps1` use the same ordered migration directory and
@@ -346,26 +317,25 @@ the expected columns and no duplicate active rows. Flyway V2 restores the
 unique-active index when it is absent. Use `-AdoptLegacyV4Schema` only when the
 expected V1-V4 table/index signature is present. The setup script checks that
 object signature before creating a baseline. It refuses empty, partial,
-mismatched, or mixed schemas.
+mismatched, or mixed schemas. These adoption options recover Flyway history,
+not application data: V10/V11 intentionally discard obsolete transition storage.
 
 ## Safe Operations
 
-| Operation                                 | Mutates data?                                         | Preferred command                                     |
-| ----------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------- |
-| Check tools/configuration                 | No                                                    | `scripts/check-environment.ps1 -IncludePostgres`      |
-| Inspect schema/counts/metadata            | No                                                    | `scripts/inspect-postgres.ps1`                        |
-| Create role/database and migrate          | Yes                                                   | `scripts/setup-local-postgres.ps1`                    |
-| Run pending migrations/validation         | Yes                                                   | `scripts/migrate-postgres.ps1`                        |
-| Back up and migrate into workspace        | Yes                                                   | `scripts/migrate-financial-snapshot-to-workspace.ps1` |
-| Roll back unchanged migration             | Yes                                                   | `scripts/rollback-workspace-snapshot-migration.ps1`   |
-| Start backend                             | No financial seeding; sessions may write through APIs | `scripts/start-backend.ps1`                           |
-| Run required PostgreSQL integration tests | Yes, isolated test schemas only                       | `scripts/verify-local.ps1`                            |
+| Operation                                 | Mutates data?                                         | Preferred command                                |
+| ----------------------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| Check tools/configuration                 | No                                                    | `scripts/check-environment.ps1 -IncludePostgres` |
+| Inspect schema/counts/metadata            | No                                                    | `scripts/inspect-postgres.ps1`                   |
+| Create role/database and migrate          | Yes                                                   | `scripts/setup-local-postgres.ps1`               |
+| Run pending migrations/validation         | Yes                                                   | `scripts/migrate-postgres.ps1`                   |
+| Start backend                             | No financial seeding; sessions may write through APIs | `scripts/start-backend.ps1`                      |
+| Run required PostgreSQL integration tests | Yes, isolated test schemas only                       | `scripts/verify-local.ps1`                       |
 
 Investigation uses explicit read-only transactions. Do not run setup,
 migrations, `ANALYZE`, DDL, DML, or destructive recovery merely to diagnose a
 problem.
 
-## Backup, Restore, and Migration
+## Backup and Restore
 
 The application exposes a manual snapshot export:
 
@@ -376,8 +346,7 @@ GET /api/v1/financials/export
 The export is a JSON attachment whose `snapshot` field mirrors the
 full-snapshot save request shape. It is useful as a portable, source-shaped
 copy of the currently saved aggregate. Application backups do not include
-complete relational audit history; relational storage and some retained legacy
-migration sources may include it.
+complete relational audit history, which remains in relational storage.
 
 The backend exposes one explicit application-level restore endpoint:
 
@@ -393,15 +362,13 @@ workspace. This permits deliberate recovery from an older backup while a
 concurrent target write still fails with `409 Conflict`.
 
 Application restore is useful for deliberate local recovery from a trusted
-export, but it is not an automated backup schedule, PostgreSQL dump, complete
-audit-history backup, or workspace-migration strategy. The PowerShell
+export, but it is not an automated backup schedule, PostgreSQL dump, or
+complete audit-history backup. The PowerShell
 export/restore helpers sign in with
 `FINANCIALS_ACCOUNT_EMAIL` and `FINANCIALS_ACCOUNT_PASSWORD`, require
 `-WorkspaceId` when the account has multiple memberships, and revoke their
 temporary server session afterward.
 
-- Before migrating legacy JSON, copy the source and any `.bak` recovery file to
-  a protected location outside the repository.
 - Before PostgreSQL changes, use administrator-approved database-native backup
   tooling and verify restoration on a separate target.
 - Treat backups, exports, and restore files as personal financial data.
@@ -410,93 +377,20 @@ temporary server session afterward.
 - Do not commit downloaded exports or store them in repository folders. The
   export script refuses repository output paths unless explicitly overridden for
   synthetic/mock data.
-- Do not overwrite a legacy source while trying to synchronize it with the
-  relational workspace.
-- Use the supported workspace migration command for JSON/JSONB transition; do
-  not rely on first-start seeding as migration evidence.
 - A rollback must restore the aggregate and its metadata consistently; do not
   copy only selected JSON keys or normalized tables.
 
-### Explicit workspace migration prerequisites
-
-Before migration:
-
-1. Apply Flyway through `scripts/migrate-postgres.ps1` and run the backend.
-2. Create or sign in to the destination account and obtain the `Personal`
-   workspace ID from the account session response.
-3. Confirm that the named account is the workspace owner and the destination
-   has no active relational snapshot. The command also checks both conditions
-   inside its transaction and refuses overwrite.
-4. Choose a protected backup path outside the repository. The backup contains
-   personal financial data and audit history.
-5. Stop writes to the legacy source until migration and metadata verification
-   complete.
-
-For a local JSON source:
-
-```powershell
-.\scripts\migrate-financial-snapshot-to-workspace.ps1 `
-    -Source json-file `
-    -InputPath .\backend\data\financials.local.json `
-    -BackupPath C:\protected-backups\financials-before-workspace-migration.json `
-    -DestinationEmail owner@example.com `
-    -WorkspaceId 1 `
-    -ConfirmMigration
-```
-
-For the active PostgreSQL JSONB document:
-
-```powershell
-.\scripts\migrate-financial-snapshot-to-workspace.ps1 `
-    -Source jsonb-document `
-    -BackupPath C:\protected-backups\financials-before-workspace-migration.json `
-    -DestinationEmail owner@example.com `
-    -WorkspaceId 1 `
-    -ConfirmMigration
-```
-
-The script refuses existing backup files unless `-Force` is explicit and
-refuses repository paths unless `-AllowRepositoryPath` is explicit for
-synthetic data. Non-loopback HTTP is rejected; remote targets require HTTPS.
-It writes or downloads the exact backup first, computes SHA-256, applies that
-fingerprint, and performs a separate metadata-only `GET` afterward. Output is
-limited to IDs, source kind/version/fingerprint, destination identity, counts,
-and backup location. It never prints financial values.
-
-Keep the reported migration UUID with the external backup. Do not retire or
-modify the legacy source; the relational runtime reads the migrated workspace
-and keeps the source only as recovery evidence.
-
-### Guarded migration rollback
-
-Before any runtime edit to the migrated workspace, an unchanged applied
-migration can be rolled back:
-
-```powershell
-.\scripts\rollback-workspace-snapshot-migration.ps1 `
-    -MigrationId <uuid> `
-    -ConfirmRollback
-```
-
-Rollback checks the migration status, migrated snapshot ID, active flag,
-version, and all record/audit counts. If any changed, it returns `409` and does
-nothing. A successful rollback deactivates the migrated snapshot and marks the
-migration `rolled_back`; it retains the relational rows and migration history
-for investigation and leaves the legacy source and external backup untouched.
-It does not automatically change Spring profiles or restore a modified runtime.
-
 ## Failure and Recovery Boundaries
 
-- JSON parse/write failures become a generic persistence failure at the API
-  boundary; inspect local paths and recovery copies without printing values.
+- Backup JSON parse failures become a generic API failure; inspect the trusted
+  export without printing values.
 - PostgreSQL serialization/query failures become the same generic API failure;
   inspect connectivity, schema, active-row count, version, and privileges.
 - Multiple active relational snapshot rows for one workspace violate the
   intended invariant and require administrator-led recovery after a backup.
-- An empty legacy document table is healthy.
 - Empty normalized V1 tables are healthy under the current adapter.
-- Empty V3/V4/V6/V7/V8/V9 `financial_record_*` tables are healthy only for workspaces
-  that have not received an explicit initial or migrated snapshot.
+- Empty V3/V4/V6-V11 `financial_record_*` tables are healthy only for
+  workspaces that have not initialized a snapshot.
 
 See `docs/api-contract.md` for request replacement semantics and
 `docs/domain-glossary.md` for storage terminology.

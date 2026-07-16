@@ -20,20 +20,21 @@ canonical owner below instead of copying the same claim into several files.
 
 ## Canonical Ownership
 
-| Question                                                | Canonical source                                                |
-| ------------------------------------------------------- | --------------------------------------------------------------- |
-| What problem does the product solve?                    | [Root README](../README.md)                                     |
-| What does the product look like and how did it evolve?  | [Portfolio case study](portfolio-case-study.md)                 |
-| How do runtime components and requests fit together?    | [Architecture map](architecture-map.md)                         |
-| Why was an architectural tradeoff chosen?               | [ADR index](adr/README.md) and the owning ADR                   |
-| What do domain terms mean?                              | [Domain glossary](domain-glossary.md)                           |
-| What is the current HTTP contract?                      | [API contract](api-contract.md)                                 |
-| How is data stored, migrated, backed up, and inspected? | [Database storage guide](database-storage-guide.md)             |
-| Which checks are required for a change?                 | [Verification matrix](verification-matrix.md)                   |
-| What evidence currently passes, and with what caveats?  | [Engineering evidence](engineering-evidence.md)                 |
-| What is intentionally incomplete?                       | [Known limitations](known-limitations.md)                       |
-| How are logs, metrics, and request IDs handled?         | [Observability guide](observability-guide.md)                   |
-| What remains on the product and deployment path?        | [Production-readiness roadmap](production-readiness-roadmap.md) |
+| Question                                                | Canonical source                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------- |
+| What problem does the product solve?                    | [Root README](../README.md)                                         |
+| What does the product look like and how did it evolve?  | [Portfolio case study](portfolio-case-study.md)                     |
+| How do runtime components and requests fit together?    | [Architecture map](architecture-map.md)                             |
+| Why was an architectural tradeoff chosen?               | [ADR index](adr/README.md) and the owning ADR                       |
+| What do domain terms mean?                              | [Domain glossary](domain-glossary.md)                               |
+| What is the current HTTP contract?                      | [API contract](api-contract.md)                                     |
+| How is data stored, migrated, backed up, and inspected? | [Database storage guide](database-storage-guide.md)                 |
+| Which checks are required for a change?                 | [Verification matrix](verification-matrix.md)                       |
+| What evidence currently passes, and with what caveats?  | [Engineering evidence](engineering-evidence.md)                     |
+| What is intentionally incomplete?                       | [Known limitations](known-limitations.md)                           |
+| How are logs, metrics, and request IDs handled?         | [Observability guide](observability-guide.md)                       |
+| What provider research and deployment decision remain?  | [Deployment provider assessment](deployment-provider-assessment.md) |
+| What remains on the product and deployment path?        | [Production-readiness roadmap](production-readiness-roadmap.md)     |
 
 The root README intentionally does not duplicate detailed API tables, database
 commands, coverage thresholds, or troubleshooting branches. Those details live
@@ -102,6 +103,7 @@ in the case study, which is in the corpus.
 - [Dependency update triage](dependency-update-triage.md)
 - [Maintenance review workflow](maintenance-review-workflow.md)
 - [Snyk MCP/API assessment](snyk-integration-assessment.md)
+- [Deployment provider assessment](deployment-provider-assessment.md)
 - [AI enablement roadmap](ai-enablement-roadmap.md)
 
 These documents are maintained and link-checked, but they are not automatically

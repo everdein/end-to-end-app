@@ -33,11 +33,11 @@ removed until their role is reassigned, but all display fields remain editable.
 Temporary negative IDs are preserved in frontend save requests. The aggregate
 repository assigns positive IDs and remaps role references in the same save.
 
-V8 backfills exact historical anchor labels. Legacy JSON, JSONB, and
-backup input is upgraded once by compatibility normalization: matching legacy
-labels are selected without being renamed, and missing responsibilities receive
-zero-value default records. Once roles exist, runtime behavior never infers
-identity from labels.
+V8 backfills exact historical anchor labels. Older application backup input is
+upgraded once by compatibility normalization: matching historical labels are
+selected without being renamed, and missing responsibilities receive zero-value
+default records. Once roles exist, runtime behavior never infers identity from
+labels. ADR 0028 later retires the legacy JSON/JSONB migration boundary.
 
 ## Consequences
 

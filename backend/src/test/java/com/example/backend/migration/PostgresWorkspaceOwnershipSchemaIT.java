@@ -58,21 +58,20 @@ class PostgresWorkspaceOwnershipSchemaIT {
             where schemaname = current_schema()
               and indexname in (
                   'uq_financial_record_snapshot_active_workspace',
-                  'uq_financial_record_snapshot_active_unowned',
                   'ix_financial_record_snapshot_workspace'
               )
             """,
             Integer.class);
 
     assertThat(activeSnapshotCount).isEqualTo(2);
-    assertThat(workspaceIndexCount).isEqualTo(3);
+    assertThat(workspaceIndexCount).isEqualTo(2);
     assertThatThrownBy(() -> insertSnapshot(firstWorkspaceId))
         .isInstanceOf(DataAccessException.class);
     assertThatThrownBy(() -> insertSnapshot(null)).isInstanceOf(DataAccessException.class);
   }
 
   @Test
-  void preservesLegacyUnownedSnapshotForExplicitMigration() {
+  void retiresLegacyUnownedSnapshotsAndRequiresWorkspaceOwnership() {
     migrate(MigrationVersion.fromVersion("5"));
     insertLegacySnapshot();
 
@@ -82,18 +81,34 @@ class PostgresWorkspaceOwnershipSchemaIT {
         jdbcTemplate.queryForObject(
             "select count(*) from financial_record_snapshot where workspace_id is null",
             Integer.class);
-    Boolean workspaceConstraintValidated =
+    String workspaceNullable =
         jdbcTemplate.queryForObject(
             """
-            select convalidated
-            from pg_catalog.pg_constraint
-            where conrelid = 'financial_record_snapshot'::regclass
-              and conname = 'ck_financial_record_snapshot_workspace_required'
+            select is_nullable
+            from information_schema.columns
+            where table_schema = current_schema()
+              and table_name = 'financial_record_snapshot'
+              and column_name = 'workspace_id'
             """,
-            Boolean.class);
+            String.class);
+    Integer retiredObjectCount =
+        jdbcTemplate.queryForObject(
+            """
+            select count(*)
+            from pg_catalog.pg_class object
+            join pg_catalog.pg_namespace namespace on namespace.oid = object.relnamespace
+            where namespace.nspname = current_schema()
+              and object.relname in (
+                  'financial_snapshot_document',
+                  'financial_snapshot_workspace_migration',
+                  'uq_financial_record_snapshot_active_unowned'
+              )
+            """,
+            Integer.class);
 
-    assertThat(unownedSnapshotCount).isEqualTo(1);
-    assertThat(workspaceConstraintValidated).isFalse();
+    assertThat(unownedSnapshotCount).isZero();
+    assertThat(workspaceNullable).isEqualTo("NO");
+    assertThat(retiredObjectCount).isZero();
     assertThatThrownBy(() -> insertSnapshot(null)).isInstanceOf(DataAccessException.class);
   }
 

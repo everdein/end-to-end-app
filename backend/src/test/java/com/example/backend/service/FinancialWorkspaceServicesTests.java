@@ -3,8 +3,15 @@ package com.example.backend.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.example.backend.domain.financials.AnnualWithdrawal;
+import com.example.backend.domain.financials.AssetAccount;
+import com.example.backend.domain.financials.DebtAccount;
+import com.example.backend.domain.financials.ExpenseBill;
 import com.example.backend.domain.financials.FinancialAuditEvent;
 import com.example.backend.domain.financials.FinancialSnapshot;
+import com.example.backend.domain.financials.ImportantDate;
+import com.example.backend.domain.financials.IncomeEvent;
+import com.example.backend.domain.financials.IncomeSummaryItem;
 import com.example.backend.dto.financials.AnnualWithdrawalSnapshotRequest;
 import com.example.backend.dto.financials.AssetAccountSnapshotRequest;
 import com.example.backend.dto.financials.AssetCategorySnapshotRequest;
@@ -16,11 +23,9 @@ import com.example.backend.dto.financials.FinancialSnapshotBackup;
 import com.example.backend.dto.financials.ImportantDateSnapshotRequest;
 import com.example.backend.dto.financials.IncomeEventSnapshotRequest;
 import com.example.backend.dto.financials.IncomeSummaryItemSnapshotRequest;
-import com.example.backend.repository.FinancialsData;
 import com.example.backend.repository.FinancialsRepository;
 import com.example.backend.repository.FinancialsSnapshotStore;
 import com.example.backend.repository.SnapshotVersionConflictException;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -29,12 +34,11 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.ObjectMapper;
 
 class FinancialWorkspaceServicesTests {
 
   @Test
-  void returnsSeededMonthlyExpenseSnapshot() throws IOException {
+  void returnsSeededMonthlyExpenseSnapshot() {
     Services services = services(Clock.systemDefaultZone());
 
     var snapshot = services.queries().getSnapshot();
@@ -89,7 +93,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void savesPlanningSettingsAndUsesTheirTimeZoneForTheCurrentDate() throws IOException {
+  void savesPlanningSettingsAndUsesTheirTimeZoneForTheCurrentDate() {
     Clock clock = Clock.fixed(Instant.parse("2026-01-01T00:30:00Z"), ZoneOffset.UTC);
     Services services = services(clock);
     ExpenseSnapshotRequest source = services.queries().exportSnapshot().snapshot();
@@ -118,7 +122,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void exportsSourceSnapshotForBackup() throws IOException {
+  void exportsSourceSnapshotForBackup() {
     Clock clock = Clock.fixed(Instant.parse("2026-07-11T10:15:30Z"), ZoneOffset.UTC);
     Services services = services(clock);
 
@@ -142,7 +146,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void restoresOlderJsonBackupAgainstCurrentTargetVersion() throws IOException {
+  void restoresOlderJsonBackupAgainstCurrentTargetVersion() {
     Services services = services(Clock.systemDefaultZone());
     FinancialSnapshotBackup backup = services.queries().exportSnapshot();
     ExpenseSnapshotRequest source = backup.snapshot();
@@ -180,7 +184,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void rejectsStaleJsonRestoreTargetVersion() throws IOException {
+  void rejectsStaleJsonRestoreTargetVersion() {
     Services services = services(Clock.systemDefaultZone());
     FinancialSnapshotBackup backup = services.queries().exportSnapshot();
 
@@ -192,7 +196,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void rejectsUnsupportedJsonBackupFormat() throws IOException {
+  void rejectsUnsupportedJsonBackupFormat() {
     Services services = services(Clock.systemDefaultZone());
     FinancialSnapshotBackup backup = services.queries().exportSnapshot();
 
@@ -209,7 +213,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void recordsAuditHistoryWithProjectionSummary() throws IOException {
+  void recordsAuditHistoryWithProjectionSummary() {
     Services services = services(Clock.systemDefaultZone());
     ExpenseSnapshotRequest source = services.queries().exportSnapshot().snapshot();
     List<ExpenseBillSnapshotRequest> bills = new ArrayList<>(source.bills());
@@ -247,7 +251,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void rollsSavedPayPeriodForwardToCurrentDate() throws IOException {
+  void rollsSavedPayPeriodForwardToCurrentDate() {
     Clock clock = Clock.fixed(Instant.parse("2026-06-22T12:00:00Z"), ZoneOffset.UTC);
     Services services = services(clock);
 
@@ -264,7 +268,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void savesSnapshotInOneBatch() throws IOException {
+  void savesSnapshotInOneBatch() {
     Services services = services(Clock.systemDefaultZone());
     long loadedVersion = services.queries().getSnapshot().version();
 
@@ -341,7 +345,7 @@ class FinancialWorkspaceServicesTests {
   }
 
   @Test
-  void rejectsStaleSnapshotVersion() throws IOException {
+  void rejectsStaleSnapshotVersion() {
     Services services = services(Clock.systemDefaultZone());
     ExpenseSnapshotRequest staleSnapshot = services.queries().exportSnapshot().snapshot();
 
@@ -352,109 +356,46 @@ class FinancialWorkspaceServicesTests {
         .hasMessageContaining("Reload before saving");
   }
 
-  private FinancialsRepository repository() throws IOException {
-    FinancialsData seedData =
-        new ObjectMapper()
-            .readValue(
-                """
-        {
-          "version": 1,
-          "payPeriodStart": "2026-01-01",
-          "payPeriodEnd": "2026-01-15",
-          "bills": [
-            {
-              "id": 1,
-              "bill": "Example Rent",
-              "dueDay": 1,
-              "amount": 1200.0,
-              "account": "Checking",
-              "paid": false
-            },
-            {
-              "id": 2,
-              "bill": "Example Savings Transfer",
-              "dueDay": 15,
-              "amount": 250.0,
-              "account": "Savings",
-              "paid": false
-            }
-          ],
-          "annualWithdrawals": [
-            {
-              "id": 1,
-              "bill": "Example Membership",
-              "month": 1,
-              "day": 15,
-              "amount": 99.0,
-              "account": "Checking",
-              "paid": false
-            }
-          ],
-          "assetAccounts": [
-            {
-              "id": 1,
-              "categoryKey": "retirement",
-              "categoryLabel": "Retirement",
-              "account": "Example 401k",
-              "company": "Example Provider",
-              "amount": 10000.0
-            },
-            {
-              "id": 2,
-              "categoryKey": "cash-savings",
-              "categoryLabel": "Cash & Savings",
-              "account": "Emergency Fund",
-              "company": "Example Bank",
-              "amount": 5000.0
-            }
-          ],
-          "debtAccounts": [
-            {
-              "id": 1,
-              "account": "Example Credit Card",
-              "company": "Example Bank",
-              "amount": 500.0
-            }
-          ],
-          "incomeSummaryItems": [
-            {
-              "id": 1,
-              "category": "Net Income",
-              "interval": "Annual",
-              "amount": 75000.0
-            }
-          ],
-          "incomeEvents": [
-            {
-              "id": 1,
-              "date": "2026-01-09",
-              "label": "Paycheck",
-              "type": "Paycheck",
-              "checkNumber": 1
-            },
-            {
-              "id": 2,
-              "date": "2026-01-23",
-              "label": "Paycheck",
-              "type": "Paycheck",
-              "checkNumber": 2
-            }
-          ],
-          "importantDates": [
-            {
-              "id": 1,
-              "date": "2026-01-01",
-              "event": "New Years",
-              "type": "Holiday"
-            }
-          ]
-        }
-        """,
-                FinancialsData.class);
-    return new FinancialsRepository(new InMemoryFinancialsSnapshotStore(seedData));
+  private FinancialsRepository repository() {
+    FinancialSnapshot seedSnapshot =
+        new FinancialSnapshot(
+            1,
+            LocalDate.of(2026, 1, 1),
+            LocalDate.of(2026, 1, 15),
+            List.of(
+                new ExpenseBill(1, "Example Rent", 1, new BigDecimal("1200.00"), "Checking", false),
+                new ExpenseBill(
+                    2, "Example Savings Transfer", 15, new BigDecimal("250.00"), "Savings", false)),
+            List.of(
+                new AnnualWithdrawal(
+                    1, "Example Membership", 1, 15, new BigDecimal("99.00"), "Checking", false)),
+            List.of(
+                new AssetAccount(
+                    1,
+                    "retirement",
+                    "Retirement",
+                    "Example 401k",
+                    "Example Provider",
+                    new BigDecimal("10000.00")),
+                new AssetAccount(
+                    2,
+                    "cash-savings",
+                    "Cash & Savings",
+                    "Emergency Fund",
+                    "Example Bank",
+                    new BigDecimal("5000.00"))),
+            List.of(
+                new DebtAccount(
+                    1, "Example Credit Card", "Example Bank", new BigDecimal("500.00"))),
+            List.of(new IncomeSummaryItem(1, "Net Income", "Annual", new BigDecimal("75000.00"))),
+            List.of(
+                new IncomeEvent(1, LocalDate.of(2026, 1, 9), "Paycheck", "Paycheck", 1),
+                new IncomeEvent(2, LocalDate.of(2026, 1, 23), "Paycheck", "Paycheck", 2)),
+            List.of(new ImportantDate(1, LocalDate.of(2026, 1, 1), "New Years", "Holiday")));
+    return new FinancialsRepository(new InMemoryFinancialsSnapshotStore(seedSnapshot));
   }
 
-  private Services services(Clock clock) throws IOException {
+  private Services services(Clock clock) {
     FinancialsRepository repository = repository();
     FinancialSnapshotNormalizer normalizer = new FinancialSnapshotNormalizer();
     FinancialSnapshotRequestMapper requestMapper = new FinancialSnapshotRequestMapper(normalizer);
@@ -477,9 +418,9 @@ class FinancialWorkspaceServicesTests {
     private FinancialSnapshot snapshot;
     private final List<FinancialAuditEvent> auditEvents;
 
-    private InMemoryFinancialsSnapshotStore(FinancialsData data) {
-      snapshot = data.toSnapshot();
-      auditEvents = new ArrayList<>(data.auditEvents());
+    private InMemoryFinancialsSnapshotStore(FinancialSnapshot snapshot) {
+      this.snapshot = snapshot;
+      auditEvents = new ArrayList<>();
     }
 
     @Override

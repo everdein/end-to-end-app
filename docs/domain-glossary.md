@@ -238,21 +238,15 @@ the cookie value.
 
 ### PostgreSQL runtime
 
-The only application persistence path. `PostgresFinancialsSnapshotStore` binds the request-scoped aggregate to an
-authenticated workspace and reads/writes V3/V4/V6/V7/V8/V9 relational rows. Flyway
-applies schema migrations.
+The only application persistence path. `PostgresFinancialsSnapshotStore` binds
+the request-scoped aggregate to an authenticated workspace and reads/writes
+V3/V4/V6-V11 relational rows. Flyway applies schema migrations.
 
-### Legacy JSON file
+### Retired transition storage
 
-An ignored `backend/data/financials.local.json` or recovery sibling retained
-outside runtime behavior as a possible explicit migration source. The
-application never reads, writes, or seeds from these files during startup.
-
-### Legacy snapshot document
-
-The retained row in `financial_snapshot_document` where `active = true`. Its
-`snapshot_json` may contain a pre-activation aggregate and audit history. It is
-an explicit migration source, not the PostgreSQL runtime store.
+The V2 JSONB document table, V7 migration ledger, optional source linkage, and
+unowned relational compatibility rows removed by V10/V11. They remain visible in
+immutable Flyway history but are not supported storage or recovery paths.
 
 ### Normalized V1 tables
 
@@ -266,41 +260,12 @@ in these tables is expected.
 The `FinancialsSnapshotStore` interface with `load` and `save` operations.
 `PostgresFinancialsSnapshotStore` is the only runtime implementation.
 
-### Workspace snapshot migration
-
-An explicit PostgreSQL-only operator operation that copies one backed-up legacy
-JSON file or active JSONB storage envelope into an empty relational workspace.
-It names the owner and workspace, preserves source version and audit events,
-and verifies record counts without changing the legacy source. The relational
-adapter is already the PostgreSQL runtime store.
-
-### Migration fingerprint
-
-The SHA-256 digest of the exact external JSON backup artifact used as migration
-input. The operator command creates the backup before applying the migration;
-the backend rejects the operation if the current source does not match that
-fingerprint.
-
-### Migration record
-
-The V7 `financial_snapshot_workspace_migration` row connecting a source kind,
-fingerprint, effective version, destination owner/workspace, migrated snapshot,
-expected counts, status, and timestamps. It contains metadata only, not another
-copy of financial values.
-
-### Rollback eligible
-
-An applied migration whose relational snapshot is still active and whose
-version and all record/audit counts still match its migration record. Guarded
-rollback deactivates that snapshot and retains its rows. Any later target change
-removes rollback eligibility and causes rollback to fail closed.
-
 ### Seed data
 
-Committed example data is synthetic input for tests, demos, and explicit
-migration. Runtime startup and account creation never seed a financial
-workspace implicitly. Existing personal JSON enters PostgreSQL only through the
-explicit migration workflow.
+Committed example data is synthetic input for tests and demos. Runtime startup
+and account creation never seed a financial workspace implicitly. A user
+initializes an empty workspace and enters data through authenticated APIs, or
+deliberately restores a supported application export.
 
 ## Data Classification Terms
 

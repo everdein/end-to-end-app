@@ -29,11 +29,10 @@ memberships, and hashed server sessions with explicit CSRF protection.
 or write is isolated to that relational workspace. The React client recovers
 the `HttpOnly` session, obtains fresh CSRF proof before each mutation, stores
 only a non-sensitive workspace preference, and clears Redux snapshot state at
-every account or workspace boundary. A separate Basic-auth operator workflow can
-back up JSON/JSONB, import it into an empty owned relational workspace, verify
-metadata, and roll back an unchanged migration. Full-snapshot saves use
-optimistic versions; PostgreSQL writers serialize on a workspace row before
-replacing its active snapshot.
+every account or workspace boundary. Basic authentication protects metrics
+only; the retired admin namespace is denied. Full-snapshot saves use optimistic
+versions, and PostgreSQL writers serialize on a workspace row before replacing
+its active snapshot.
 
 ## Frontend
 
@@ -122,25 +121,23 @@ flowchart TD
     RecordAdapter --> RecordTables["financial_record_* tables<br/>active PostgreSQL runtime"]
 ```
 
-| Layer                                          | Responsibilities                                                                            | Must not own                          |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `api/`                                         | Routes, validation entry points, HTTP status mapping                                        | Persistence or financial calculations |
-| `dto/financials/`                              | External request/response contract                                                          | Storage implementation                |
-| `domain/financials/`                           | Backend financial record types, saved snapshot aggregate, audit/projection types            | HTTP or storage implementation        |
-| `service/FinancialWorkspaceQueries`            | Current snapshot, audit-history, and JSON-backup query contract                             | Versioned writes                      |
-| `service/FinancialWorkspaceCommands`           | Versioned aggregate replacement and JSON restore contract                                   | Financial presentation calculations   |
-| `service/FinancialSnapshotPresenter`           | Calculate and map a supplied aggregate to the financial API response                        | Persistence reads or writes           |
-| `service/FinancialSnapshot*`                   | Request conversion, normalization, calculations, and API response construction              | HTTP status mapping or SQL access     |
-| `service/CurrentWorkspace`                     | Supply the required current workspace ID through a framework-neutral port                   | Headers, servlet requests, or SQL     |
-| `repository/FinancialsRepository`              | In-memory aggregate, ID assignment, audit event capture, versioned replacement, persistence | HTTP behavior                         |
-| `repository/*SnapshotStore`                    | Workspace-scoped relational snapshot load/save                                              | API response derivation               |
-| `PostgresFinancialRecordSnapshotAdapter`       | Workspace-scoped relational load, optimistic replacement, and audit persistence             | HTTP authorization                    |
-| `config/AuthenticatedRequestWorkspace`         | Resolve sole or `X-Workspace-ID` membership from the authenticated session                  | SQL or financial calculations         |
-| `PostgresAccountSessionRepository`             | PostgreSQL users, memberships, hashed sessions, revocation, and recovery                    | Financial snapshot access             |
-| `AccountSessionService`                        | Credential hashing, opaque-token issuance, account/workspace transaction                    | Financial persistence                 |
-| `WorkspaceSnapshotMigrationService`            | Backed-up source validation, ownership checks, metadata verification, rollback              | Runtime-store selection               |
-| `PostgresWorkspaceSnapshotMigrationRepository` | Legacy JSONB reads, relational audit/history metadata, migration records                    | HTTP or frontend behavior             |
-| `config/`                                      | Security, CORS, request limits, and observability configuration                             | Domain behavior                       |
+| Layer                                    | Responsibilities                                                                            | Must not own                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `api/`                                   | Routes, validation entry points, HTTP status mapping                                        | Persistence or financial calculations |
+| `dto/financials/`                        | External request/response contract                                                          | Storage implementation                |
+| `domain/financials/`                     | Backend financial record types, saved snapshot aggregate, audit/projection types            | HTTP or storage implementation        |
+| `service/FinancialWorkspaceQueries`      | Current snapshot, audit-history, and JSON-backup query contract                             | Versioned writes                      |
+| `service/FinancialWorkspaceCommands`     | Versioned aggregate replacement and JSON restore contract                                   | Financial presentation calculations   |
+| `service/FinancialSnapshotPresenter`     | Calculate and map a supplied aggregate to the financial API response                        | Persistence reads or writes           |
+| `service/FinancialSnapshot*`             | Request conversion, normalization, calculations, and API response construction              | HTTP status mapping or SQL access     |
+| `service/CurrentWorkspace`               | Supply the required current workspace ID through a framework-neutral port                   | Headers, servlet requests, or SQL     |
+| `repository/FinancialsRepository`        | In-memory aggregate, ID assignment, audit event capture, versioned replacement, persistence | HTTP behavior                         |
+| `repository/*SnapshotStore`              | Workspace-scoped relational snapshot load/save                                              | API response derivation               |
+| `PostgresFinancialRecordSnapshotAdapter` | Workspace-scoped relational load, optimistic replacement, and audit persistence             | HTTP authorization                    |
+| `config/AuthenticatedRequestWorkspace`   | Resolve sole or `X-Workspace-ID` membership from the authenticated session                  | SQL or financial calculations         |
+| `PostgresAccountSessionRepository`       | PostgreSQL users, memberships, hashed sessions, revocation, and recovery                    | Financial snapshot access             |
+| `AccountSessionService`                  | Credential hashing, opaque-token issuance, account/workspace transaction                    | Financial persistence                 |
+| `config/`                                | Security, CORS, request limits, and observability configuration                             | Domain behavior                       |
 
 `config/RequestObservabilityFilter` validates or creates request IDs, records
 safe request completion metadata, and increments low-cardinality snapshot
@@ -159,7 +156,7 @@ aggregate save persists them.
 | ------------------ | ---------------------------------------------------------------------- |
 | Adapter            | `PostgresFinancialsSnapshotStore`                                      |
 | Active data        | Workspace-scoped `financial_record_*` rows and relational audit events |
-| Initial data       | Explicit migration or application-created snapshot; no implicit seed   |
+| Initial data       | Application-created empty snapshot; no implicit seed                   |
 | Authorization      | Account session `WORKSPACE` authority plus membership selection        |
 | Schema             | Flyway migrations under `db/migration/`                                |
 | Local verification | Required isolated-schema integration gate                              |
@@ -172,8 +169,8 @@ isolated schemas. Direct execution of versioned SQL files is unsupported.
 `V1__create_financials_schema.sql` defines normalized tables that remain
 inactive historical groundwork. ADR 0009 decides they should not become the
 active relational persistence path as-is, and they may remain empty.
-`V2__create_financial_snapshot_document.sql` defines the retained legacy JSONB
-migration source. `V3__create_financial_record_snapshot_schema.sql` defines the
+`V2__create_financial_snapshot_document.sql` historically introduced the JSONB
+store retired by V10. `V3__create_financial_record_snapshot_schema.sql` defines the
 `financial_record_*` relational table family from ADR 0010, and
 `V4__add_financial_record_app_id_constraints.sql` preserves stable app-record
 identity within each snapshot. The CRUD methods introduced with ADR 0011 were
@@ -182,20 +179,13 @@ remain valid. The PostgreSQL runtime is wired to this relational adapter.
 `V5__create_identity_workspace_session_schema.sql` adds users, workspaces,
 memberships, and hashed server-session storage. The PostgreSQL account API uses
 those tables for signup, sign-in, recovery, and sign-out. Current financial API
-authentication derives from account sessions and current memberships. Legacy
-Basic credentials remain for operator endpoints and metrics, not PostgreSQL
-financial access.
+authentication derives from account sessions and current memberships. Basic
+credentials remain for protected metrics, not PostgreSQL financial access.
 `V6__scope_financial_record_snapshots_to_workspace.sql` replaces the global
 relational active-snapshot constraint with one active snapshot per workspace
 and requires a workspace ID for every new relational snapshot. Every adapter
-operation is workspace-scoped. Pre-V6 unowned relational rows remain untouched
-until explicit migration; the JSONB document is not a runtime write target.
-`V7__add_workspace_snapshot_migration_history.sql` preserves storage-envelope
-audit events beside relational snapshots and records source fingerprints,
-destination ownership, versions, counts, status, and timestamps for explicit
-JSON/JSONB migration and guarded rollback. The operator service refuses to
-overwrite an active workspace snapshot and leaves both the legacy source and
-external backup untouched.
+operation is workspace-scoped. V7 adds relational audit-event persistence and
+historically added a transition ledger.
 `V8__add_financial_projection_roles.sql` stores three typed projection role
 references per versioned snapshot and backfills exact historical anchor labels.
 The adapter reads and writes these rows with the aggregate. Service validation
@@ -206,6 +196,12 @@ input defaults to `BIWEEKLY` and `UTC`. The calculator derives one
 zone-specific `currentDate` per response and uses it for active-period
 selection; the frontend uses cadence-aware annualization and recurring-payday
 rules while keeping persisted dates date-only.
+`V10__retire_legacy_snapshot_migration.sql` removes the V2 JSONB table, V7
+transition ledger, and source-document linkage.
+`V11__require_workspace_owned_financial_snapshots.sql` removes unowned
+compatibility rows, makes `financial_record_snapshot.workspace_id` non-null,
+and leaves the workspace-scoped relational aggregate as the sole persistence
+path.
 At runtime, the query service asks the request-scoped aggregate repository for
 one complete current snapshot. The repository lazily loads it for the selected
 workspace, and calculation/response collaborators derive the API response from
@@ -214,8 +210,7 @@ newest-first SQL query with a database-enforced limit and do not hydrate the
 current aggregate. An optimistic replacement passes exactly one new audit event
 to the store; the adapter writes each child-record family in JDBC batches and
 appends that event in the same workspace-locked transaction. Historical
-snapshots and audit events remain retained. `FinancialsData` remains only as an
-explicit legacy migration envelope.
+snapshots and audit events remain retained.
 The active store and initialization service obtain the selected workspace ID
 through `CurrentWorkspace`. Only `AuthenticatedRequestWorkspace` reads the HTTP
 header and Spring Security principal. Financial application exceptions are
@@ -334,7 +329,6 @@ infrastructure.
 | HTTP contract                    | Controller and DTOs                           | Frontend endpoint types, mappers, contract tests, docs           |
 | JSON backup and restore          | Controller, workspace operations, backup DTO  | Scripts, contract tests, API docs, data-safety rules             |
 | Financial/date rule              | Backend calculator or focused frontend helper | Both presentation and persistence assumptions                    |
-| Legacy JSON migration            | Workspace migration service and scripts       | Backup verification, isolated integration test, storage docs     |
 | PostgreSQL behavior              | Store plus additive migration                 | Session boundary, isolated integration test, storage docs        |
 | Audit/history behavior           | Repository, store, relational adapter         | Audit DTOs, API docs, storage guide, data-safety rules           |
 | CI/security                      | `.github/workflows/*.yml`                     | Local scripts, lock files, permissions, hosted scan expectations |

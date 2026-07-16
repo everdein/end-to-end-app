@@ -195,7 +195,6 @@
                     <excludes>
                         <exclude>com/example/backend/repository/PostgresAccountSessionRepository*</exclude>
                         <exclude>com/example/backend/repository/PostgresFinancialRecordSnapshotAdapter*</exclude>
-                        <exclude>com/example/backend/repository/PostgresWorkspaceSnapshotMigrationRepository*</exclude>
                     </excludes>
                 </configuration>
                 <executions>

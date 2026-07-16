@@ -102,21 +102,22 @@ transition is verified:
       workspace principals without granting them global financial access.
 - [x] Replace frontend Basic authentication with signup, sign-in, session
       recovery, sign-out, per-mutation CSRF proof, and workspace selection.
-- [x] Activate the V3/V4/V6/V7/V8/V9 relational adapter as the PostgreSQL runtime financial
+- [x] Activate the V3/V4/V6-V11 relational adapter as the PostgreSQL runtime financial
       store while preserving optimistic versioning and the snapshot API.
 - [x] Add live PostgreSQL browser cross-user isolation coverage for distinct
       account sessions, workspace snapshots, saves, sign-out, and recovery.
 - [x] Add an explicit, backed-up JSON/JSONB-to-workspace migration workflow
       with metadata-only verification and a documented rollback path.
+- [x] Retire that transition workflow after the owner selected re-entry from
+      an independent source instead of preserving obsolete application data.
 - [x] Make PostgreSQL-backed tests required locally and in hosted CI.
 - [x] Make PostgreSQL the only startup path, then remove the JSON runtime
       profile, JSON snapshot store, automatic personal-JSON seeding, and
       duplicate startup scripts and instructions.
 
-Do not silently seed or migrate personal financial data. Keep
-`financials.example.json` as synthetic test/demo input. Preserve explicit
-backup and migration evidence until the owner confirms recovery needs are met;
-Phase H will consolidate the long-term backup/restore format.
+Do not silently seed personal financial data. Keep `financials.example.json`
+as synthetic test/demo input. V10/V11 record the explicit owner-approved
+retirement of the obsolete JSON/JSONB transition path.
 
 ## Phase F - Make the Application Product-Quality
 
@@ -158,9 +159,8 @@ aggregate. Implement that decision before splitting the remaining services:
       matching JSON export/restore path unless spreadsheet editing becomes a
       demonstrated product requirement; then retire unused tabular formats and
       their custom codec.
-- [ ] Retire legacy JSON/JSONB migration administration only after the owner
-      confirms that personal source data is migrated, independently backed up,
-      and outside the required rollback window.
+- [x] Retire legacy JSON/JSONB migration administration after the owner chose
+      re-entry from an independent spreadsheet and waived legacy recovery.
 - [x] Split current-snapshot loading from audit-history queries, apply history
       limits in SQL, append only new audit events, and batch relational record
       writes where whole-snapshot replacement remains.
@@ -245,8 +245,8 @@ Phase L is complete.
 
 Next highest-value items:
 
-1. Confirm whether personal legacy JSON/JSONB sources are migrated,
-   independently backed up, and outside the rollback window before retiring
-   migration administration.
-2. Decide when to begin Phase M provider and deployment-boundary evaluation;
-   keep the application local-first until those decisions are approved.
+1. Decide whether the completed application roadmap should gain one final
+   pre-deployment architecture and scalability review phase. Keep Phase M and
+   the provider comparison in the
+   [deployment provider assessment](deployment-provider-assessment.md) deferred
+   until that review decision is complete.
