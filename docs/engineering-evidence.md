@@ -11,8 +11,8 @@ result demonstrates and, equally importantly, what it does not demonstrate.
 | ----------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Local completion gate         | Pass                                      | Environment, spelling, public-corpus validation, dependency compatibility, TypeScript, ESLint, frontend tests and build, backend formatting/build/tests, and PostgreSQL integration | Local Windows environment; hosted Linux behavior is separate                         |
 | Frontend tests                | 119 of 119 passed in 20 files             | Components, Redux/API behavior, draft editing, calculations, dates, workflow states, and error handling                                                                             | jsdom/unit and integration-style tests; not browser coverage                         |
-| Backend tests                 | 71 of 71 passed in 14 classes             | Controllers, security/configuration, repositories, services, validation, and calculations                                                                                           | Default suite uses mocks or local collaborators where appropriate                    |
-| PostgreSQL integration        | 29 of 29 passed in 9 classes              | Flyway migrations, relational persistence, identity/session behavior, workspace isolation, migration/rollback, CSRF, and runtime APIs                                               | Local PostgreSQL 18.4; schemas were isolated and removed after the run               |
+| Backend tests                 | 63 of 63 passed in 12 classes             | Controllers, security/configuration, repositories, services, validation, and calculations                                                                                           | Default suite uses mocks or local collaborators where appropriate                    |
+| PostgreSQL integration        | 28 of 28 passed in 8 classes              | Flyway V1-V11, relational persistence, identity/session behavior, workspace isolation, transition retirement, CSRF, and runtime APIs                                                | Local PostgreSQL 18.4; schemas were isolated and removed after the run               |
 | Live browser workflow         | 6 of 6 passed in 3 specifications         | React, Vite proxy, Spring Boot, PostgreSQL, authentication, isolation, save/reload, conflicts, accessibility, and responsive behavior                                               | Chromium only; synthetic data; not cross-browser certification                       |
 | Automated accessibility       | 2 of 2 axe scenarios passed               | Account forms, onboarding, twelve financial sections, dialog semantics, and modal focus behavior under WCAG 2.0/2.1/2.2 A/AA rules                                                  | Automated rules cannot validate screen-reader usefulness or certify WCAG conformance |
 | Automated responsive behavior | 1 end-to-end scenario passed at 4 widths  | `320x800`, `390x844`, `768x1024`, and `1024x768`; overflow, control containment, table scrolling, and navigation breakpoint                                                         | Geometry checks do not replace manual readability, orientation, or 200% zoom review  |
@@ -29,13 +29,13 @@ configured minimum:
 | Area     | Statements / Instructions | Branches | Functions / Methods |  Lines | Enforced gate                                          |
 | -------- | ------------------------: | -------: | ------------------: | -----: | ------------------------------------------------------ |
 | Frontend |                    82.63% |   74.33% |              82.19% | 82.37% | Statements 45%, branches 45%, functions 35%, lines 46% |
-| Backend  |                    86.15% |   67.39% |              82.93% | 82.98% | Lines 80%                                              |
+| Backend  |                    85.32% |   69.00% |              81.84% | 82.73% | Lines 80%                                              |
 
 Coverage is a regression signal, not a claim that every behavior or risk is
 tested. Frontend percentages come from Vitest/V8 and do not include Playwright
 execution. Backend percentages come from the default JaCoCo suite. The three
 PostgreSQL repository implementations excluded from default instrumentation are
-exercised behaviorally by the required isolated integration suite, but those 29
+exercised behaviorally by the required isolated integration suite, but those 28
 tests do not increase the JaCoCo percentages above.
 
 ## Browser Evidence

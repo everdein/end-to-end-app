@@ -155,7 +155,8 @@ not found` means the workspace has not received an explicit snapshot.
 
 4. Run the read-only PostgreSQL inspector and follow the connectivity,
    migration, privilege, or workspace branch that matches the failure.
-5. Do not point startup at a legacy JSON file; it is a migration source only.
+5. Do not point startup at a local JSON file; it is not a supported runtime
+   input.
 
 ### API returns `400 Invalid request`
 
@@ -233,62 +234,25 @@ historical limitation; ADR 0015 establishes Flyway as the single authority.
 5. If the signature check fails, stop and plan an additive repair migration on
    a copy or disposable target. Do not run migration files with `psql -f`.
 
-### `financial_snapshot_document` has zero rows
-
-This is healthy. The table is a legacy migration source and PostgreSQL startup
-does not seed it.
-
 ### Normalized V1 tables are empty
 
 Expected. They are inactive V1 historical groundwork. Active PostgreSQL data
-uses V3/V4/V6/V7/V8/V9 workspace tables. Do not backfill V1 as a troubleshooting
+uses V3/V4/V6-V11 workspace tables. Do not backfill V1 as a troubleshooting
 step.
 
-### V3/V4/V6/V7/V8/V9 `financial_record_*` tables are empty
+### V3/V4/V6-V11 `financial_record_*` tables are empty
 
-Expected only when no workspace has received an explicit initial or migrated
-snapshot. The runtime never seeds one from local/example JSON. Recover the
-account session, confirm the intended workspace ID, and use the backed-up
-migration workflow rather than inserting records manually.
+Expected only when a workspace has not initialized a snapshot. The runtime
+never seeds one from local/example JSON. Recover the account session, confirm
+the intended workspace ID, and initialize through the application rather than
+inserting records manually.
 
 ### A relational snapshot has a null `workspace_id`
 
-This can be a pre-V6 row intentionally preserved for the explicit ownership
-migration. V6 blocks new or changed unowned rows and allows at most one active
-legacy unowned row, but its workspace-required check remains pending validation
-until that migration names a destination user/workspace. Do not assign
-ownership or validate the constraint as an ad hoc troubleshooting step.
-
-### Workspace migration returns `404`
-
-1. Confirm the PostgreSQL account exists and is active.
-2. Recover the account session and verify the requested workspace ID appears
-   with `owner` role.
-3. For `jsonb-document`, inspect metadata to confirm one active legacy document
-   exists. Do not start or seed the backend merely to create a source.
-4. Do not substitute another email or workspace by guessing; rerun only with the
-   intended destination identity.
-
-### Workspace migration returns `409`
-
-1. If the detail reports a fingerprint mismatch, stop writes, create a fresh
-   external backup, and rerun with its SHA-256 fingerprint. Never edit the
-   backup to force a match.
-2. If the destination already has an active relational snapshot, stop. The
-   workflow is intentionally not a merge or overwrite operation.
-3. If rollback reports the snapshot changed or is inactive, retain the source,
-   backup, migration UUID, and metadata. Do not deactivate rows or rewrite the
-   migration status manually.
-4. Use metadata-only inspection of migration status, snapshot ID/active/version,
-   and record/audit counts before planning recovery.
-
-### Workspace migration metadata does not match
-
-The apply transaction should roll back completely if target version or counts
-do not match the source. Preserve the external backup and request ID, inspect
-Flyway version and table/count metadata, and reproduce with synthetic data in
-an isolated schema. Do not print values, copy selected record tables, or retry
-against another personal workspace until the cause is understood.
+V11 makes `workspace_id` required and removes any preexisting unowned rows. A
+null value after V11 indicates schema drift or a failed migration. Stop writes,
+inspect Flyway history and constraints, and repair through a new additive
+migration rather than assigning ownership by hand.
 
 ### V5 identity, workspace, membership, and session tables are empty
 
@@ -318,21 +282,18 @@ not seed identity rows manually as a troubleshooting step.
 ### Confirm the workspace and source
 
 PostgreSQL relational workspace storage is always active. Recover the account
-session, confirm the selected workspace ID, and inspect only metadata. If data
-exists only in a retained JSON or JSONB source, use the explicit backed-up
-migration workflow; startup never synchronizes or seeds it.
+session, confirm the selected workspace ID, and inspect only metadata. Startup
+never synchronizes or seeds data from a local JSON file.
 
 ### Suspected data loss
 
 1. Stop the backend and avoid saves.
 2. Record the database, account, workspace ID, and last known good time.
-3. Preserve:
-   - Current `.local.json`, `.tmp`, and `.bak` files, or
-   - A PostgreSQL administrator-approved backup.
-4. Collect metadata only: file timestamps/sizes or workspace/snapshot ID,
+3. Preserve a PostgreSQL administrator-approved backup.
+4. Collect metadata only: workspace/snapshot ID,
    active flag, version, and timestamps.
 5. Compare with the last known backup outside the live target.
-6. Plan restoration or migration explicitly; never merge snapshots by guessing
+6. Plan restoration explicitly; never merge snapshots by guessing
    which missing collections are intentional.
 
 ### Data changed after read

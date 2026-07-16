@@ -28,7 +28,7 @@ summarize these sources but must not override them.
 | Projection role identity          | `FinancialProjectionRoles`, V8 migration, reducer, and projection settings                         | Normalizer, repository, adapter integration, workspace, and projection tests                                                                                                         |
 | Pay cadence and planning date     | `FinancialPlanningSettings`, V9 migration, calculator, and frontend date/projection helpers        | Request/response mapping, repository, adapter/API integration, and focused recurrence tests                                                                                          |
 | Default/profile behavior          | `application*.properties`                                                                          | Startup scripts                                                                                                                                                                      |
-| JSON paths and seed behavior      | Repository implementation/configuration                                                            | Backend README                                                                                                                                                                       |
+| Seed and initialization behavior  | Repository implementation/configuration                                                            | Backend README                                                                                                                                                                       |
 | PostgreSQL active storage         | Store and relational-adapter implementations plus migrations                                       | Integration tests for current snapshot, bounded history, replacement, and isolation                                                                                                  |
 | PostgreSQL V3/V4 relational path  | `backend/src/main/java/com/example/backend/repository/PostgresFinancialRecordSnapshotAdapter.java` | `backend/src/main/resources/db/migration/V3__create_financial_record_snapshot_schema.sql`, `backend/src/main/resources/db/migration/V4__add_financial_record_app_id_constraints.sql` |
 | Schema state                      | Ordered migration files                                                                            | Read-only inspector output                                                                                                                                                           |
@@ -59,8 +59,7 @@ summarize these sources but must not override them.
 - Confirm commands exist and defaults do not mutate data unexpectedly.
 - Check environment variable names, defaults, secret handling, and whether a
   variable is required or optional.
-- Distinguish JSON-only setup from PostgreSQL setup and authenticated security
-  scans.
+- Distinguish PostgreSQL setup from authenticated security scans.
 
 ### API and Domain
 
@@ -74,9 +73,9 @@ summarize these sources but must not override them.
 
 - Verify table names, migration order, Flyway behavior, active storage adapter,
   seeding, versioning, and expected empty tables.
-- Describe V1 normalized tables as inactive historical groundwork, V2 JSONB as
-  a legacy migration source, and V3/V4/V6/V7/V8/V9 financial-record tables as active
-  workspace runtime persistence.
+- Describe V1 normalized tables as inactive historical groundwork,
+  V3/V4/V6-V11 financial-record tables as active workspace persistence, and
+  V2/V7 transition storage as retired by V10/V11.
 - Distinguish the write-capable application role from a recommended read-only
   inspection or MCP role.
 

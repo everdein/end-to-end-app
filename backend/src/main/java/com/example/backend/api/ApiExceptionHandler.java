@@ -8,9 +8,6 @@ import com.example.backend.service.FinancialSnapshotVersionConflictException;
 import com.example.backend.service.WorkspaceAccessDeniedException;
 import com.example.backend.service.WorkspaceFinancialSnapshotConflictException;
 import com.example.backend.service.WorkspaceFinancialSnapshotNotFoundException;
-import com.example.backend.service.WorkspaceMigrationConflictException;
-import com.example.backend.service.WorkspaceMigrationNotFoundException;
-import com.example.backend.service.WorkspaceMigrationRequestException;
 import com.example.backend.service.WorkspaceSelectionException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -75,33 +72,6 @@ public class ApiExceptionHandler {
     ProblemDetail problemDetail =
         ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     problemDetail.setTitle("Financial snapshot already exists");
-    return withRequestId(problemDetail);
-  }
-
-  @ExceptionHandler(WorkspaceMigrationRequestException.class)
-  public ProblemDetail handleWorkspaceMigrationRequest(
-      WorkspaceMigrationRequestException exception) {
-    ProblemDetail problemDetail =
-        ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
-    problemDetail.setTitle("Invalid migration request");
-    return withRequestId(problemDetail);
-  }
-
-  @ExceptionHandler(WorkspaceMigrationConflictException.class)
-  public ProblemDetail handleWorkspaceMigrationConflict(
-      WorkspaceMigrationConflictException exception) {
-    ProblemDetail problemDetail =
-        ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
-    problemDetail.setTitle("Migration conflict");
-    return withRequestId(problemDetail);
-  }
-
-  @ExceptionHandler(WorkspaceMigrationNotFoundException.class)
-  public ProblemDetail handleWorkspaceMigrationNotFound(
-      WorkspaceMigrationNotFoundException exception) {
-    ProblemDetail problemDetail =
-        ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
-    problemDetail.setTitle("Migration resource not found");
     return withRequestId(problemDetail);
   }
 

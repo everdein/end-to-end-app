@@ -18,7 +18,7 @@ controller annotations remain authoritative.
 Operator Basic-auth development defaults are `financial_app` /
 `financial_app_local_password`. Override them with `FINANCIALS_API_USERNAME` and
 `FINANCIALS_API_PASSWORD` before starting the backend.
-These credentials protect migration-admin and metrics routes only; they are not
+These credentials protect metrics routes only; they are not
 PostgreSQL database or financial-account credentials. Failed financial-session
 authentication returns `401` without a browser Basic-auth challenge.
 
@@ -59,58 +59,15 @@ relational financial snapshot owned by one of those memberships. When there is
 one membership it is selected automatically. Accounts with multiple
 memberships send `X-Workspace-ID`; malformed or missing ambiguous selections
 return `400`, and selecting a non-membership returns `403`. A workspace without
-an explicitly created or migrated snapshot returns `404` and is never silently
+an explicitly created snapshot returns `404` and is never silently
 seeded from personal JSON. An authenticated member may create an empty version-1
-snapshot with `POST /api/v1/financials`; existing data still uses the explicit
-operator migration workflow.
+snapshot with `POST /api/v1/financials`.
 
 The frontend captures the selected workspace ID for each financial request and
 sends it as `X-Workspace-ID`, including when only one membership is available.
 It does not derive the header from mutable module-global workspace state, so a
 later selection cannot redirect an earlier in-flight request. Clearing the
 account session also aborts active frontend API requests.
-
-## Workspace Migration Operations
-
-The operator-only transition API is exposed under
-`/api/v1/admin/workspace-migrations`. Every route requires operator Basic
-authentication with `FINANCIALS` authority. Account-session `WORKSPACE`
-principals receive `403` and unauthenticated requests receive `401`.
-
-| Method | Path                      | Confirmation | Purpose                                                                 |
-| ------ | ------------------------- | ------------ | ----------------------------------------------------------------------- |
-| `GET`  | `/legacy-jsonb-backup`    | None         | Download the effective active JSONB storage envelope                    |
-| `POST` | `/apply/json-file`        | `APPLY`      | Migrate the request JSON envelope into an empty owned workspace         |
-| `POST` | `/apply/jsonb-document`   | `APPLY`      | Migrate the current active JSONB document into an empty owned workspace |
-| `GET`  | `/{migrationId}`          | None         | Read metadata-only migration verification                               |
-| `POST` | `/{migrationId}/rollback` | `ROLLBACK`   | Deactivate an unchanged migrated snapshot                               |
-
-Apply requests require `expectedFingerprint`, `destinationEmail`, and positive
-`workspaceId` query parameters. The fingerprint is the lowercase or uppercase
-64-character SHA-256 digest of the exact external backup artifact. The
-confirmation value is sent in `X-Confirm-Financial-Migration`. A JSON-file apply
-uses `Content-Type: application/json` and the exact backed-up file as its body.
-
-The destination email must identify the active owner of the named workspace,
-and that workspace must not have an active relational financial snapshot.
-Apply validates source IDs, required fields, date ranges, numeric precision,
-and audit metadata, then writes the snapshot, all record families, source audit
-events, and migration history in one transaction. The legacy source is not
-changed or deactivated.
-
-Migration responses contain IDs, source kind and fingerprint, source/current
-versions, destination account/workspace metadata, expected/current record
-counts, status/timestamps, `metadataMatches`, `snapshotActive`, and
-`rollbackEligible`. They never contain financial values. Rollback succeeds only
-while the migrated snapshot remains active and its version and counts match the
-migration record; otherwise it returns `409`. Successful rollback retains the
-relational rows and history but marks the snapshot inactive and the migration
-`rolled_back`.
-
-Use `scripts/migrate-financial-snapshot-to-workspace.ps1` and
-`scripts/rollback-workspace-snapshot-migration.ps1` as the supported operator
-workflow because they create the external backup and perform an independent
-metadata verification request.
 
 Cross-origin browser calls are denied unless `FINANCIALS_ALLOWED_ORIGINS`
 contains exact allowed origins. Request bodies above
@@ -152,8 +109,8 @@ workspace and returns the calculated snapshot. These records
 are application structure, not imported financial values. The
 dates are required and the end cannot precede the start. A workspace that
 already has an active snapshot returns `409 Conflict`, including concurrent
-creation attempts. This endpoint never reads example, personal JSON, or legacy
-JSONB data. The creation command returns its successfully persisted aggregate
+creation attempts. This endpoint never reads example or obsolete local JSON
+data. The creation command returns its successfully persisted aggregate
 for response presentation rather than issuing a second current-snapshot query.
 
 Every `GET /api/v1/financials` response includes the current snapshot
@@ -297,7 +254,7 @@ accepted through the compatibility normalizer (`Yes*`).
 
 `planningSettings.payCadence` must be `WEEKLY`, `BIWEEKLY`, `SEMIMONTHLY`, or
 `MONTHLY`. `planningSettings.timeZone` must be a Java-supported IANA zone.
-Legacy backup and migration input without settings defaults once to
+Older backup input without settings defaults once to
 `BIWEEKLY` and `UTC` (`Yes*`).
 
 ### Response
@@ -619,10 +576,10 @@ Date, event, and type are required.
 Current snapshots use projection role IDs and never infer runtime behavior from
 display names. Role references are validated against their typed collections.
 
-Legacy JSON, JSONB, or backup input without roles is upgraded at the boundary.
+Older backup input without roles is upgraded at the boundary.
 Historical rent and paycheck labels may be selected without renaming the
 records. Missing responsibilities receive positive-ID, zero-value default
-records, and the resulting role configuration is persisted on migration or the
+records, and the resulting role configuration is persisted on restore or the
 next aggregate save.
 
 ## Errors

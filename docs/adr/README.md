@@ -37,6 +37,7 @@ as the codebase evolves.
 | [0025](0025-use-one-canonical-frontend-financial-draft.md)             | Accepted             | Use one canonical frontend financial draft       |
 | [0026](0026-use-versioned-record-ids-for-projection-roles.md)          | Accepted             | Use versioned record IDs for projection roles    |
 | [0027](0027-store-pay-cadence-and-planning-time-zone.md)               | Accepted             | Store cadence and planning time zone             |
+| [0028](0028-retire-legacy-snapshot-migration-administration.md)        | Accepted             | Retire legacy snapshot migration administration  |
 
 The table summarizes each record. Open the ADR's `Status` section for the
 specific successor and which part of the original decision remains in force.

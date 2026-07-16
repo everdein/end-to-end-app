@@ -38,9 +38,10 @@ restore artifact.
 - Retire CSV and XLSX export, CSV import, all unsupported import routes, the
   custom tabular codec, format-specific DTOs and frontend helpers, and the raw
   frontend POST transport that no supported workflow uses.
-- Keep database-native backup and the explicit legacy JSON/JSONB migration
-  workflow separate. An application snapshot backup does not contain complete
-  relational audit history and is not a PostgreSQL disaster-recovery artifact.
+- Keep database-native backup separate. An application snapshot backup does
+  not contain complete relational audit history and is not a PostgreSQL
+  disaster-recovery artifact. ADR 0028 later retires the temporary legacy
+  migration workflow.
 
 This ADR supersedes ADR 0013 and ADR 0017. Their implementation history remains
 useful evidence of why the simpler recovery boundary was selected.

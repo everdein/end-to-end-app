@@ -34,12 +34,12 @@ runtime store boundary.
 - Batch inserts within each relational child-record family in groups of up to
   100 while keeping the complete replacement and audit append in one
   transaction.
-- Retain historical snapshots and events. Keep `FinancialsData` as the explicit
-  legacy JSON/JSONB migration envelope; it is no longer the runtime
-  current-state store contract.
+- Retain historical snapshots and events. At implementation time,
+  `FinancialsData` remained only as a transition envelope; ADR 0028 later
+  removes that envelope with migration administration.
 
-No schema migration is required. This changes query and transaction behavior
-over the existing V3/V4/V6/V7 relational model.
+No schema migration was required for this decision. It changed query and
+transaction behavior over the then-current V3/V4/V6/V7 relational model.
 
 ## Consequences
 

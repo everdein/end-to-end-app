@@ -74,6 +74,11 @@
       "reason": "Completed foundations and explicit next work."
     },
     {
+      "path": "docs/deployment-provider-assessment.md",
+      "kind": "document",
+      "reason": "Deferred portfolio hosting research, provider tradeoffs, and release gates."
+    },
+    {
       "path": "docs/adr/README.md",
       "kind": "document",
       "reason": "ADR status and supersession index."
@@ -269,11 +274,6 @@
       "reason": "Backend financial calculations."
     },
     {
-      "path": "backend/src/main/java/com/example/backend/service/WorkspaceSnapshotMigrationService.java",
-      "kind": "source",
-      "reason": "Explicit legacy migration, verification, and rollback policy."
-    },
-    {
       "path": "backend/src/main/java/com/example/backend/repository/PostgresFinancialRecordSnapshotAdapter.java",
       "kind": "source",
       "reason": "Workspace-scoped relational persistence and optimistic replacement."
@@ -289,11 +289,6 @@
       "reason": "Workspace ownership constraints."
     },
     {
-      "path": "backend/src/main/resources/db/migration/V7__add_workspace_snapshot_migration_history.sql",
-      "kind": "source",
-      "reason": "Migration verification and rollback history schema."
-    },
-    {
       "path": "backend/src/main/resources/db/migration/V8__add_financial_projection_roles.sql",
       "kind": "source",
       "reason": "Stable projection-role schema."
@@ -302,6 +297,16 @@
       "path": "backend/src/main/resources/db/migration/V9__add_financial_planning_settings.sql",
       "kind": "source",
       "reason": "Pay cadence and planning time-zone schema."
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V10__retire_legacy_snapshot_migration.sql",
+      "kind": "source",
+      "reason": "Owner-approved retirement of obsolete legacy snapshot storage and administration."
+    },
+    {
+      "path": "backend/src/main/resources/db/migration/V11__require_workspace_owned_financial_snapshots.sql",
+      "kind": "source",
+      "reason": "Final database-enforced workspace ownership boundary."
     },
     {
       "path": "frontend/src/features/financials/financialsProjection.test.ts",
@@ -369,11 +374,6 @@
       "reason": "Authenticated workspace runtime and cross-user isolation."
     },
     {
-      "path": "backend/src/test/java/com/example/backend/api/WorkspaceSnapshotMigrationApiIT.java",
-      "kind": "test",
-      "reason": "Legacy migration, verification, ownership, and rollback integration."
-    },
-    {
       "path": ".github/workflows/ci.yml",
       "kind": "workflow",
       "reason": "Hosted build, test, PostgreSQL, browser, coverage, and Snyk gates."
@@ -411,7 +411,7 @@
     },
     {
       "pattern": "backend/data/**",
-      "reason": "Financial fixtures and possible ignored personal migration sources."
+      "reason": "Financial fixtures and ignored local artifacts are excluded from the public corpus."
     },
     {
       "pattern": "**/package-lock.json",

@@ -130,6 +130,14 @@ class ApiSecurityConfigIT {
   }
 
   @Test
+  void deniesTheRetiredAdminNamespace() throws Exception {
+    mockMvc
+        .perform(
+            get("/api/v1/admin/workspace-migrations").with(httpBasic("test-user", "test-password")))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void correlatesApiErrorsWithoutExposingAChallenge() throws Exception {
     CsrfProof csrfProof = csrfProof();
     mockMvc

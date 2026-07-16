@@ -343,7 +343,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign out/i }));
 
     await waitFor(() => expect(mockSignOut).toHaveBeenCalledOnce());
-    expect(screen.getByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
   });
 
   it('switches among workspaces without retaining the prior snapshot boundary', async () => {

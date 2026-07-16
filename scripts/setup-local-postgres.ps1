@@ -414,15 +414,6 @@ WHERE schemaname = 'public'
         "-U", $AppUser,
         "-d", $AppDatabase,
         "-v", "ON_ERROR_STOP=1",
-        "-c", "SELECT count(*) AS financial_snapshot_document_rows FROM financial_snapshot_document;"
-    )
-
-    Invoke-Psql -Arguments @(
-        "-h", $HostName,
-        "-p", $Port,
-        "-U", $AppUser,
-        "-d", $AppDatabase,
-        "-v", "ON_ERROR_STOP=1",
         "-c", "SELECT count(*) AS financial_record_snapshot_rows FROM financial_record_snapshot;"
     )
 

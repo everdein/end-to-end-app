@@ -65,8 +65,10 @@ storage, and explicit migration history. The financial API always authorizes
 enforces CSRF on writes, and reads and writes only relational workspace
 snapshots. The JSON runtime store, profile switch, implicit personal-data seed,
 and duplicate startup instructions are removed. Operator Basic auth remains
-limited to migration-admin and metrics routes. Required local and hosted
-PostgreSQL tests plus browser-level cross-user isolation verify the result.
+limited to metrics routes. Required local and hosted PostgreSQL tests plus
+browser-level cross-user isolation verify the result. ADR 0028 later retires
+the migration-administration boundary and its transition storage after the
+owner waived obsolete-data recovery.
 
 ## Consequences
 
@@ -77,8 +79,8 @@ PostgreSQL tests plus browser-level cross-user isolation verify the result.
 - PostgreSQL becomes a required local and CI dependency, so bootstrap,
   disposable test databases, migration evidence, and failure messages must be
   reliable and ergonomic.
-- Existing personal JSON and JSONB data require deliberate backup, migration,
-  rollback, and metadata-only verification before old stores are removed.
+- Existing personal JSON and JSONB data required an explicit owner decision
+  before old stores were removed. ADR 0028 records that decision and V10.
 - The application keeps its aggregate API while gaining relational ownership
   and record storage; a later API version can adopt more granular concurrency
   without blocking this runtime transition.
